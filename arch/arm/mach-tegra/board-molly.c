@@ -816,14 +816,14 @@ static const char * const molly_dt_board_compat[] = {
 
 MACHINE_START(MOLLY, "molly")
 	.atag_offset	= 0x100,
-	.soc		= &tegra_soc_desc,
+	.smp		= smp_ops(tegra_smp_ops),
 	.map_io		= tegra_map_common_io,
 	.reserve	= tegra_molly_reserve,
 	.init_early	= tegra11x_init_early,
-	.init_irq	= tegra_init_irq,
-	.handle_irq	= gic_handle_irq,
-	.timer		= &tegra_timer,
+	.init_irq	= irqchip_init,
+	.init_time	= clocksource_of_init,
 	.init_machine	= tegra_molly_dt_init,
 	.restart	= tegra_assert_system_reset,
 	.dt_compat	= molly_dt_board_compat,
+	.init_late	= tegra_init_late,
 MACHINE_END
