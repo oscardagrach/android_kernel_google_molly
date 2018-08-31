@@ -391,9 +391,6 @@ static struct platform_device *molly_devices[] __initdata = {
 	&tegra_pmu_device,
 	&tegra_rtc_device,
 	&tegra_udc_device,
-#if defined(CONFIG_TEGRA_IOVMM_SMMU) || defined(CONFIG_TEGRA_IOMMU_SMMU)
-	&tegra_smmu_device,
-#endif
 #if defined(CONFIG_TEGRA_WATCHDOG)
 	&tegra_wdt0_device,
 #endif
@@ -627,8 +624,6 @@ static void __init tegra_molly_early_init(void)
 
 static void __init tegra_molly_late_init(void)
 {
-	tegra_enable_pinmux();
-	molly_pinmux_init();
 	molly_i2c_init();
 	molly_spi_init();
 	molly_radio_init();
@@ -651,7 +646,6 @@ static void __init tegra_molly_late_init(void)
 	tegra_wdt_recovery_init();
 #endif
 	molly_soctherm_init();
-	tegra_register_fuse();
 
 	pm_power_off = molly_power_off;
     molly_boost_emc_clk_for_boot(false);
