@@ -28,9 +28,9 @@
 #include <linux/tegra_pwm_bl.h>
 #include <linux/regulator/consumer.h>
 #include <linux/pwm_backlight.h>
+#include <linux/of.h>
 
 #include <mach/irqs.h>
-#include <mach/iomap.h>
 #include <mach/dc.h>
 #include <mach/pinmux.h>
 #include <mach/pinmux-t11.h>
@@ -38,10 +38,15 @@
 #include "board.h"
 #include "devices.h"
 #include "gpio-names.h"
-#include "board-molly.h"
 #include "board-panel.h"
 #include "common.h"
+#include "iomap.h"
 #include "tegra11_host1x_devices.h"
+
+/* HDMI Hotplug detection pin */
+#define MOLLY_HDMI_HPD	 TEGRA_GPIO_PN7
+/* HDMI level shifter enable on SPDIF_IN - GPIO_PK6 */
+#define MOLLY_HDMI_LS_EN TEGRA_GPIO_PK6
 
 struct platform_device * __init molly_host1x_init(void)
 {
@@ -56,8 +61,6 @@ struct platform_device * __init molly_host1x_init(void)
 #endif
 	return pdev;
 }
-
-#ifdef CONFIG_TEGRA_DC
 
 static struct regulator *molly_hdmi_reg;
 static struct regulator *molly_hdmi_pll;
@@ -175,7 +178,6 @@ static struct tegra_dc_mode hdmi_panel_modes[] = {
 		.h_front_porch = 88,  /* right_margin */
 		.v_front_porch = 4,   /* lower_margin */
 		.avi_m = TEGRA_DC_MODE_AVI_M_16_9,
-		.avi_q = TEGRA_DC_MODE_AVI_Q_LIMITED,
 	},
 	/* 1920x1080p@23.97Hz/24Hz CEA mode 32 */
 	{
@@ -191,7 +193,6 @@ static struct tegra_dc_mode hdmi_panel_modes[] = {
 		.h_front_porch = 638,  /* right_margin */
 		.v_front_porch = 4,   /* lower_margin */
 		.avi_m = TEGRA_DC_MODE_AVI_M_16_9,
-		.avi_q = TEGRA_DC_MODE_AVI_Q_LIMITED,
 	},
 	/* 1280x720p@59.94Hz/60Hz CEA mode 4 */
 	{
@@ -207,7 +208,6 @@ static struct tegra_dc_mode hdmi_panel_modes[] = {
 		.h_front_porch = 110, /* right_margin */
 		.v_front_porch = 5,   /* lower_margin */
 		.avi_m = TEGRA_DC_MODE_AVI_M_16_9,
-		.avi_q = TEGRA_DC_MODE_AVI_Q_LIMITED,
 	},
 	/* 1280x720p@23.97Hz/24Hz CEA mode 60 */
 	{
@@ -223,7 +223,6 @@ static struct tegra_dc_mode hdmi_panel_modes[] = {
 		.h_front_porch = 1760, /* right_margin */
 		.v_front_porch = 5,   /* lower_margin */
 		.avi_m = TEGRA_DC_MODE_AVI_M_16_9,
-		.avi_q = TEGRA_DC_MODE_AVI_Q_LIMITED,
 	},
 	/* 720x480p@59.94Hz/60Hz CEA mode 3 */
 	{
@@ -241,7 +240,6 @@ static struct tegra_dc_mode hdmi_panel_modes[] = {
 		.flags = (TEGRA_DC_MODE_FLAG_NEG_H_SYNC |
 			  TEGRA_DC_MODE_FLAG_NEG_V_SYNC),
 		.avi_m = TEGRA_DC_MODE_AVI_M_16_9,
-		.avi_q = TEGRA_DC_MODE_AVI_Q_LIMITED,
 	},
 };
 
@@ -464,12 +462,3 @@ int __init molly_panel_init(void)
 #endif
 	return err;
 }
-#else
-int __init molly_panel_init(void)
-{
-	if (molly_host1x_init())
-		return 0;
-	else
-		return -EINVAL;
-}
-#endif
