@@ -168,7 +168,6 @@ static struct tegra_sdhci_platform_data tegra_sdhci_platform_data0 = {
 	.ddr_clk_limit = 50000000,
 	.max_clk_limit = 100000000,
 	.uhs_mask = MMC_UHS_MASK_DDR50,
-	.edp_support = false,
 };
 
 static struct tegra_sdhci_platform_data tegra_sdhci_platform_data3 = {
@@ -184,8 +183,6 @@ static struct tegra_sdhci_platform_data tegra_sdhci_platform_data3 = {
 		.built_in = 1,
 		.ocr_mask = MMC_OCR_1V8_MASK,
 	},
-	.edp_support = true,
-	.edp_states = {966, 0},
 };
 
 static struct platform_device tegra_sdhci_device0 = {
@@ -290,9 +287,6 @@ static int __init molly_wifi_init(void)
 #ifdef CONFIG_TEGRA_PREPOWER_WIFI
 static int __init molly_wifi_prepower(void)
 {
-	if (!machine_is_molly())
-		return 0;
-
 	molly_wifi_power(1);
 
 	return 0;
@@ -305,7 +299,8 @@ int __init molly_sdhci_init(void)
 {
 	int nominal_core_mv;
 	int min_vcore_override_mv;
-	int speedo;
+    int boot_vcore_mv;
+	u32 speedo;
 
 	nominal_core_mv =
 		tegra_dvfs_rail_get_nominal_millivolts(tegra_core_rail);
@@ -326,9 +321,15 @@ int __init molly_sdhci_init(void)
 		MMC_UHS_MASK_DDR50)))
 		tegra_sdhci_platform_data3.trim_delay = 0;
 
+	boot_vcore_mv = tegra_dvfs_rail_get_boot_level(tegra_core_rail);
+	if (boot_vcore_mv) {
+		tegra_sdhci_platform_data0.boot_vcore_mv = boot_vcore_mv;
+        tegra_sdhci_platform_data3.boot_vcore_mv = boot_vcore_mv;
+	}
+
 	speedo = tegra_fuse_readl(FUSE_CORE_SPEEDO_0);
-	tegra_sdhci_platform_data3.core_speedo = speedo;
-	tegra_sdhci_platform_data0.core_speedo = speedo;
+	tegra_sdhci_platform_data3.cpu_speedo = speedo;
+	tegra_sdhci_platform_data0.cpu_speedo = speedo;
 
 	/* device0 uses resource0, which is sdmmc1.  used for WiFi
 	 * device2 uses resource2, which is sdmmc3.
