@@ -156,52 +156,6 @@ static __initdata struct tegra_clk_init_table molly_clk_init_table[] = {
 	{ NULL,		NULL,		0,		0},
 };
 
-static struct tegra_i2c_platform_data molly_i2c1_platform_data = {
-	.adapter_nr	= 0,
-	.bus_count	= 1,
-	.bus_clk_rate	= { 100000, 0 },
-	.scl_gpio		= {TEGRA_GPIO_I2C1_SCL, 0},
-	.sda_gpio		= {TEGRA_GPIO_I2C1_SDA, 0},
-	.arb_recovery = arb_lost_recovery,
-};
-
-static struct tegra_i2c_platform_data molly_i2c2_platform_data = {
-	.adapter_nr	= 1,
-	.bus_count	= 1,
-	.bus_clk_rate	= { 400000, 0 },
-	.is_clkon_always = true,
-	.scl_gpio		= {TEGRA_GPIO_I2C2_SCL, 0},
-	.sda_gpio		= {TEGRA_GPIO_I2C2_SDA, 0},
-	.arb_recovery = arb_lost_recovery,
-};
-
-static struct tegra_i2c_platform_data molly_i2c3_platform_data = {
-	.adapter_nr	= 2,
-	.bus_count	= 1,
-	.bus_clk_rate	= { 400000, 0 },
-	.scl_gpio		= {TEGRA_GPIO_I2C3_SCL, 0},
-	.sda_gpio		= {TEGRA_GPIO_I2C3_SDA, 0},
-	.arb_recovery = arb_lost_recovery,
-};
-
-static struct tegra_i2c_platform_data molly_i2c4_platform_data = {
-	.adapter_nr	= 3,
-	.bus_count	= 1,
-	.bus_clk_rate	= { 10000, 0 },
-	.scl_gpio		= {TEGRA_GPIO_I2C4_SCL, 0},
-	.sda_gpio		= {TEGRA_GPIO_I2C4_SDA, 0},
-	.arb_recovery = arb_lost_recovery,
-};
-
-static struct tegra_i2c_platform_data molly_i2c5_platform_data = {
-	.adapter_nr	= 4,
-	.bus_count	= 1,
-	.bus_clk_rate	= { 400000, 0 },
-	.scl_gpio		= {TEGRA_GPIO_I2C5_SCL, 0},
-	.sda_gpio		= {TEGRA_GPIO_I2C5_SDA, 0},
-	.arb_recovery = arb_lost_recovery,
-};
-
 /******************************************************************************
  *                                                                            *
  *           aah_io driver platform data                                      *
@@ -380,22 +334,8 @@ static void __init molly_i2c_init(void)
 	 * I2C5/PWR is for PMIC TPS65913B2B5
 	 */
 
-	tegra11_i2c_device1.dev.platform_data = &molly_i2c1_platform_data;
-	tegra11_i2c_device2.dev.platform_data = &molly_i2c2_platform_data;
-	tegra11_i2c_device3.dev.platform_data = &molly_i2c3_platform_data;
-	tegra11_i2c_device4.dev.platform_data = &molly_i2c4_platform_data;
-	tegra11_i2c_device5.dev.platform_data = &molly_i2c5_platform_data;
-
-	platform_device_register(&tegra11_i2c_device5);
-	platform_device_register(&tegra11_i2c_device4);
-	platform_device_register(&tegra11_i2c_device3);
-	platform_device_register(&tegra11_i2c_device2);
-	platform_device_register(&tegra11_i2c_device1);
-
 	i2c_register_board_info(1, aah_io_i2c_board_info,
 				ARRAY_SIZE(aah_io_i2c_board_info));
-
-	temp_sensor_init();
 }
 
 static struct platform_device *molly_uart_devices[] __initdata = {
