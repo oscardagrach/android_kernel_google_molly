@@ -999,7 +999,8 @@ static int tegra_wakeup_monitor_resume(struct platform_device *pdev)
 		} else if (wake_status & BIT(twm->pdata->rtc_wakeup_source)) {
 			twm->wakeup_source = TEGRA_WAKEUP_SOURCE_RTC;
 			if (twm->am_enable)
-				set_rtc_wakeup_src(1);
+				//set_rtc_wakeup_src(1);
+                printk(KERN_INFO "set_rtc_wakeup_src(1)\n");
 		} else {
 			twm->wakeup_source = TEGRA_WAKEUP_SOURCE_OTHERS;
 		}
