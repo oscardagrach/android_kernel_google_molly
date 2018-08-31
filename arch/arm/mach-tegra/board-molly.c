@@ -451,55 +451,6 @@ static void __init molly_usb_init(void)
 	tegra_udc_device.dev.platform_data = &tegra_udc_pdata;
 }
 
-static struct tegra_xusb_pad_data xusb_padctl_data = {
-	.pad_mux = (0x1 << 2),
-	.port_cap = (0x1 << 4),
-	.snps_oc_map = (0x1fc << 0),
-	.usb2_oc_map = (0x2f << 0),
-	.ss_port_map = (0x1 << 0),
-	.oc_det = (0x2c << 10),
-	.rx_wander = (0xf << 4),
-	.rx_eq = (0x3070 << 8),
-	.cdr_cntl = (0x26 << 24),
-	.dfe_cntl = 0x002008EE,
-	.hs_slew = (0xE << 6),
-	.ls_rslew = (0x3 << 14),
-	.otg_pad0_ctl0 = (0x7 << 19),
-	.otg_pad1_ctl0 = (0x0 << 19),
-	.otg_pad0_ctl1 = (0x0 << 0),
-	.otg_pad1_ctl1 = (0x0 << 0),
-	.hs_disc_lvl = (0x5 << 2),
-	.hsic_pad0_ctl0 = (0x00 << 8),
-	.hsic_pad0_ctl1 = (0x00 << 8),
-
-	/* XUSB (USB 3.0) is using UTMI2 phy */
-	.portmap = TEGRA_XUSB_USB2_P1,
-};
-
-static void __init molly_xusb_init(void)
-{
-	u32 usb_calib0 = tegra_fuse_readl(FUSE_SKU_USB_CALIB_0);
-
-	pr_info("molly_xusb_init: usb_calib0 = 0x%08x\n", usb_calib0);
-	/*
-	 * read from usb_calib0 and pass to driver
-	 * set HS_CURR_LEVEL (PAD0)	= usb_calib0[5:0]
-	 * set TERM_RANGE_ADJ		= usb_calib0[10:7]
-	 * set HS_SQUELCH_LEVEL		= usb_calib0[12:11]
-	 * set HS_IREF_CAP		= usb_calib0[14:13]
-	 * set HS_CURR_LEVEL (PAD1)	= usb_calib0[20:15]
-	 */
-
-	xusb_padctl_data.hs_curr_level_pad0 = (usb_calib0 >> 0) & 0x3f;
-	xusb_padctl_data.hs_term_range_adj = (usb_calib0 >> 7) & 0xf;
-	xusb_padctl_data.hs_squelch_level = (usb_calib0 >> 11) & 0x3;
-	xusb_padctl_data.hs_iref_cap = (usb_calib0 >> 13) & 0x3;
-	xusb_padctl_data.hs_curr_level_pad1 = (usb_calib0 >> 15) & 0x3f;
-
-	tegra_xhci_device.dev.platform_data = &xusb_padctl_data;
-	platform_device_register(&tegra_xhci_device);
-}
-
 /* SMSC LAN9730 ethernet controller.
  * Initially reset is asserted.
  * TODO: How to use the phy_int_n signal?  SMSC driver doesn't take
@@ -683,7 +634,7 @@ static void __init tegra_molly_late_init(void)
 	molly_radio_init();
 	molly_wake_sources_init();
 	molly_usb_init();
-	molly_xusb_init();
+	/* molly_xusb_init(); temporarily disable while fixing */
 	molly_hsic_init();
 	molly_uart_init();
 	platform_add_devices(molly_devices, ARRAY_SIZE(molly_devices));
