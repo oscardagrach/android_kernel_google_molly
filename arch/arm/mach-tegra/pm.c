@@ -715,6 +715,7 @@ static void tegra_sleep_core(enum tegra_suspend_mode mode,
 #if defined(CONFIG_ARM_PSCI)
 	struct psci_power_state pps;
 #endif
+#ifndef CONFIG_TRUSTED_FOUNDATIONS
 	if (tegra_cpu_is_secure()) {
 		outer_flush_range(__pa(&tegra_resume_timestamps_start),
 				  __pa(&tegra_resume_timestamps_end));
@@ -750,12 +751,32 @@ static void tegra_sleep_core(enum tegra_suspend_mode mode,
 
 		trace_smc_sleep_core(NVSEC_SMC_DONE);
 	}
+#endif
+#ifdef CONFIG_TRUSTED_FOUNDATIONS
+	outer_flush_range(__pa(&tegra_resume_timestamps_start),
+			  __pa(&tegra_resume_timestamps_end));
 
+	if (mode == TEGRA_SUSPEND_LP0) {
+		trace_smc_sleep_core(NVSEC_SMC_START);
+
+		tegra_generic_smc(0xFFFFFFFC, 0xFFFFFFE3,
+				  virt_to_phys(tegra_resume));
+	} else {
+		trace_smc_sleep_core(NVSEC_SMC_START);
+
+		tegra_generic_smc(0xFFFFFFFC, 0xFFFFFFE6,
+				  (TEGRA_RESET_HANDLER_BASE +
+				   tegra_cpu_reset_handler_offset));
+	}
+
+	trace_smc_sleep_core(NVSEC_SMC_DONE);
+#endif
 	tegra_get_suspend_time();
 #ifdef CONFIG_ARCH_TEGRA_2x_SOC
 	cpu_suspend(v2p, tegra2_sleep_core_finish);
 #else
 	cpu_suspend(v2p, tegra3_sleep_core_finish);
+#endif
 #endif
 }
 
@@ -1698,7 +1719,6 @@ static __init int tegra_pm_enter_syscore_init(void)
 	return 0;
 }
 subsys_initcall(tegra_pm_enter_syscore_init);
-#endif
 
 void __init tegra_init_suspend(struct tegra_suspend_platform_data *plat)
 {

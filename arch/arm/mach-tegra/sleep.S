@@ -209,6 +209,17 @@ ENDPROC(tegra_flush_l1_cache)
  * tegra?_tear_down_cpu
  */
 ENTRY(tegra_sleep_cpu_finish)
+	mov	r4, r0
+#ifdef CONFIG_TRUSTED_FOUNDATIONS
+	ldr	r0, =0xFFFFFFFC
+	ldr	r1, =0xFFFFFFE4
+	ldr	r2, =TEGRA_RESET_HANDLER_BASE
+	bl	tegra_generic_smc
+#else
+	bl	tegra_flush_cache
+#endif
+
+	mov	r0, r4
 	bl	tegra_cpu_exit_coherency
 
 #ifdef CONFIG_ARCH_TEGRA_2x_SOC
@@ -217,7 +228,6 @@ ENTRY(tegra_sleep_cpu_finish)
 	mov32	r1, tegra3_tear_down_cpu
 #endif
 	add	r1, r1, r0
-	mov	r11, #1
 	b	tegra_turn_off_mmu
 ENDPROC(tegra_sleep_cpu_finish)
 
@@ -348,3 +358,30 @@ ENTRY(tegra_restart_prev_smc)
 	ldmia	sp!, { r1-r3 }
 	mov	pc, lr
 ENDPROC(tegra_restart_prev_smc)
+
+#ifdef CONFIG_TRUSTED_FOUNDATIONS
+/*
+ * tegra_generic_smc
+ *
+ * r0 = smc type
+ * r1 = smc subtype
+ * r2 = argument passed to smc
+ *
+ * issues SMC (secure monitor call) instruction with
+ * the specified parameters.
+ */
+ENTRY(tegra_generic_smc)
+	adr	r3, __tegra_smc_stack
+	stmia	r3, {r4-r12, lr}
+	mov	r3, #0
+	mov	r4, #0
+	dsb
+	smc	#0
+	adr	r3, __tegra_smc_stack
+	ldmia	r3, {r4-r12, pc}
+ENDPROC(tegra_generic_smc)
+	.type   __tegra_smc_stack, %object
+__tegra_smc_stack:
+	.long   0, 0, 0, 0, 0, 0, 0, 0, 0, 0
+	.size   __tegra_smc_stack, . - __tegra_smc_stack
+#endif

@@ -39,16 +39,23 @@ static bool is_enabled;
 static void tegra_cpu_reset_handler_enable(void)
 {
 	void __iomem *iram_base = IO_ADDRESS(TEGRA_IRAM_BASE);
+#ifndef CONFIG_TRUSTED_FOUNDATIONS
 	void __iomem *evp_cpu_reset =
 		IO_ADDRESS(TEGRA_EXCEPTION_VECTORS_BASE + 0x100);
 	void __iomem *sb_ctrl = IO_ADDRESS(TEGRA_SB_BASE);
 	unsigned long reg;
+#endif
 
 	BUG_ON(is_enabled);
 	BUG_ON(tegra_cpu_reset_handler_size > TEGRA_RESET_HANDLER_SIZE);
 
 	memcpy(iram_base, (void *)__tegra_cpu_reset_handler_start,
 		tegra_cpu_reset_handler_size);
+
+#ifdef CONFIG_TRUSTED_FOUNDATIONS
+	tegra_generic_smc(0xFFFFF200,
+		TEGRA_RESET_HANDLER_BASE + tegra_cpu_reset_handler_offset, 0);
+#else
 
 #if defined(CONFIG_ARM_PSCI)
 	if (psci_ops.cpu_on) {
@@ -77,7 +84,7 @@ static void tegra_cpu_reset_handler_enable(void)
 #if defined(CONFIG_ARM_PSCI)
 	}
 #endif
-
+#endif
 	is_enabled = true;
 }
 

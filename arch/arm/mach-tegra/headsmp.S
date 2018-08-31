@@ -52,11 +52,13 @@
 ENTRY(tegra_secondary_startup)
 	bl	__invalidate_cpu_state
 
+#ifndef CONFIG_TRUSTED_FOUNDATIONS
 	ldr	r0, =tegra_with_secure_firmware
 	sub	r0, #PAGE_OFFSET
 	ldr	r0, [r0]
 	cmp	r0, #1
 	beq	secondary_startup
+#endif
 
 	/* enable user space perf counter access */
 	/* only accessible in secure state       */
@@ -85,16 +87,18 @@ ENDPROC(tegra_secondary_startup)
  *	  re-enabling sdram.
  */
 ENTRY(tegra_resume)
+#ifndef CONFIG_TRUSTED_FOUNDATIONS
 	ldr	r1, =tegra_with_secure_firmware
 	sub	r1, #PAGE_OFFSET
 	ldr	r1, [r1]
 	cmp	r1, #1
 	bne	cpu_not_secure
-
+#endif
 	mov32	r1, TEGRA_TMRUS_BASE
 	ldr	r0, [r1]
 	adr	r1, tegra_resume_entry_time
 	str	r0, [r1]
+    b   cpu_not_secure
 
 cpu_not_secure:
 	bl	__invalidate_cpu_state
@@ -115,6 +119,22 @@ cpu_not_secure:
 	bic	r1, r1, r0
 	str	r1, [r2]
 #endif /* !CONFIG_ARCH_TEGRA_2x_SOC */
+
+#ifdef CONFIG_TRUSTED_FOUNDATIONS
+#ifndef CONFIG_ARCH_TEGRA_11x_SOC
+	mov32	r1, TEGRA_TMRUS_BASE
+	ldr	r0, [r1]
+	adr	r1, tegra_resume_smc_entry_time
+	str	r0, [r1]
+	/* wake up (should have specified args?) */
+	bl	tegra_generic_smc
+	mov32	r1, TEGRA_TMRUS_BASE
+	ldr	r0, [r1]
+	adr	r1, tegra_resume_smc_exit_time
+	str	r0, [r1]
+	b	no_l2_init
+#endif
+#endif
 
 #if defined(CONFIG_HAVE_ARM_SCU)
 	/* enable SCU */
@@ -390,7 +410,7 @@ ENTRY(__tegra_cpu_reset_handler)
 #if DEBUG_CPU_RESET_HANDLER
 	b	.
 #endif
-
+#ifndef CONFIG_TRUSTED_FOUNDATIONS
 	ldr	r0, =tegra_with_secure_firmware
 	sub	r0, #PAGE_OFFSET
 	ldr	r0, [r0]
@@ -411,6 +431,8 @@ ENTRY(__tegra_cpu_reset_handler)
 	mrceq	p15, 0, r10, c15, c0, 1		@ read diagnostic register
 	orreq	r10, r10, #1 << 6		@ set bit #6
 	mcreq	p15, 0, r10, c15, c0, 1		@ write diagnostic register
+#endif
+cpu_is_secure:
 #endif
 
 cpu_is_secure:
