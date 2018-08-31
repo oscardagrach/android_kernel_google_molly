@@ -26,6 +26,9 @@ struct wifi_platform_data {
 	int (*get_mac_addr)(unsigned char *buf);
 	void *(*get_country_code)(char *ccode);
 	struct sysedp_consumer *sysedpc;
+	int host_sleep_cond;
+	int host_sleep_gpio;
+	int host_sleep_gap;
 };
 
 #endif
