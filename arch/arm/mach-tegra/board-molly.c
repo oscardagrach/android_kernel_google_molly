@@ -806,10 +806,6 @@ static void __init tegra_molly_reserve(void)
 }
 
 static const char * const molly_dt_board_compat[] = {
-	"nvidia,dalmore", /*
-			   * allows us to work with dalmore
-			   * bootloader for now
-			   */
 	"google,molly",
 	NULL
 };
