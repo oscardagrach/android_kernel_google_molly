@@ -71,12 +71,14 @@ enum molly_rev {
 
 extern int molly_hw_rev;
 
+extern struct tegra_sdhci_platform_data tegra_sdhci_platform_data0;
+extern struct tegra_sdhci_platform_data tegra_sdhci_platform_data3;
+
 int molly_regulator_init(void);
 int molly_suspend_init(void);
 int molly_sdhci_init(void);
-int molly_pinmux_init(void);
 int molly_emc_init(void);
 int molly_edp_init(void);
 int molly_panel_init(void);
-int molly_pmon_init(void);
+int molly_sensors_init(void);
 int molly_soctherm_init(void);
