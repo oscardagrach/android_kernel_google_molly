@@ -59,8 +59,6 @@
 #include "tegra11_soctherm.h"
 #include "iomap.h"
 
-#if MOLLY_ON_DALMORE == 0
-
 #define PMC_CTRL		0x0
 #define PMC_CTRL_INTR_LOW	(1 << 17)
 
@@ -795,5 +793,3 @@ int __init molly_soctherm_init(void)
 
 	return tegra11_soctherm_init(&molly_soctherm_data);
 }
-
-#endif
