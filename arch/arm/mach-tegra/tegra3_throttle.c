@@ -50,10 +50,12 @@ static struct {
 	{ .cap_name = "cap.throttle.gbus" },
 #endif
 #ifdef CONFIG_TEGRA_GPU_DVFS
+#ifdef CONFIG_TEGRA_DUAL_CBUS
 	{ .cap_name = "cap.throttle.c2bus" },
 	{ .cap_name = "cap.throttle.c3bus" },
 #else
 	{ .cap_name = "cap.throttle.cbus" },
+#endif
 #endif
 	{ .cap_name = "cap.throttle.sclk" },
 	{ .cap_name = "cap.throttle.emc" },
