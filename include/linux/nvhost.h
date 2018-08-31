@@ -115,6 +115,7 @@ struct nvhost_clock {
 struct nvhost_device_data {
 	int		version;	/* ip version number of device */
 	int		id;		/* Separates clients of same hw */
+	int		index;		/* Hardware channel number */
 	void __iomem	*aperture[NVHOST_MODULE_MAX_IORESOURCE_MEM];
 	struct device_dma_parameters dma_parms;
 
@@ -144,14 +145,9 @@ struct nvhost_device_data {
 	struct mutex	lock;		/* Power management lock */
 	struct list_head client_list;	/* List of clients and rate requests */
 
-	int		num_channels;	/* Max num of channel supported */
-	int		num_mapped_chs;	/* Num of channel mapped to device */
-
-	/* Channel(s) assigned for the module */
-	struct nvhost_channel **channels;
+	struct nvhost_channel *channel;	/* Channel assigned for the module */
 
 	/* device node for channel operations */
-	dev_t cdev_region;
 	struct device *node;
 	struct cdev cdev;
 
@@ -239,6 +235,9 @@ struct nvhost_device_data {
 	/* Allocates a context handler for the device */
 	struct nvhost_hwctx_handler *(*alloc_hwctx_handler)(u32 syncpt,
 			u32 waitbase, struct nvhost_channel *ch);
+
+	/* Callback when a clock is changed */
+	void (*update_clk)(struct platform_device *dev);
 };
 
 
@@ -318,7 +317,6 @@ struct sync_fence *nvhost_sync_fdget(int fd);
 int nvhost_sync_num_pts(struct sync_fence *fence);
 u32 nvhost_sync_pt_id(struct sync_pt *pt);
 u32 nvhost_sync_pt_thresh(struct sync_pt *pt);
-int nvhost_sync_fence_set_name(int fence_fd, const char *name);
 
 #else
 static inline struct sync_fence *nvhost_sync_create_fence(
@@ -360,11 +358,6 @@ static inline u32 nvhost_sync_pt_thresh(struct sync_pt *pt)
 	return 0;
 }
 
-static inline int nvhost_sync_fence_set_name(int fence_fd, const char *name)
-{
-	return -EINVAL;
-}
-
 #endif
 
 /* Hacky way to get access to struct nvhost_device_data for VI device. */
@@ -374,3 +367,4 @@ extern struct nvhost_device_data t11_vi_info;
 extern struct nvhost_device_data t14_vi_info;
 
 #endif
+
