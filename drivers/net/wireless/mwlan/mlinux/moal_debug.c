@@ -1037,10 +1037,9 @@ woal_debug_entry(moal_private * priv)
 			     &priv->items_priv);
 	if (r == NULL)
 #else
-	r = create_proc_entry("debug", 0644, priv->proc_entry);
+	r = proc_create("debug", 0644, priv->proc_entry, &debug_proc_fops);
 	if (r) {
 		r->data = &priv->items_priv;
-		r->proc_fops = &debug_proc_fops;
 	} else
 #endif
 	{
@@ -1054,34 +1053,29 @@ woal_debug_entry(moal_private * priv)
 	hgm_seq_init_globals();
 
 	/* Create proc entry for driver histogram data */
-	r2 = create_proc_entry("histogram", 0664, priv->proc_entry);
+	r2 = proc_create_data("histogram", 0664, priv->proc_entry, &hgm_file_ops, &priv->items_priv_hist);
 	if (r2 == NULL) {
 		LEAVE();
 		return;
 	}
-	r2->data = &priv->items_priv_hist;
 #if LINUX_VERSION_CODE < KERNEL_VERSION(2,6,30)
 	r2->owner = THIS_MODULE;
 #endif
-	r2->proc_fops = &hgm_file_ops;
-	r2->uid = 0;
-	r2->gid = 1008; // wifi group
+    proc_set_user(r2, 0, 1008); //wifi group
 	mlan_hist_data_clear();
 #endif
 
 #ifdef DLOG_SUPPORT
 	woal_dlog_init();
 
-	r3 = create_proc_entry("dlog", 0664, priv->proc_entry);
+	r3 = proc_create_data("dlog", 0664, priv->proc_entry, &dlog_file_ops, NULL);
 	if (r3 == NULL) {
 		LEAVE();
 		return;
 	}
-	r3->data = NULL;
 #if LINUX_VERSION_CODE < KERNEL_VERSION(2,6,30)
 	r3->owner = THIS_MODULE;
 #endif
-	r3->proc_fops = &dlog_file_ops;
 #endif
 
 	LEAVE();
