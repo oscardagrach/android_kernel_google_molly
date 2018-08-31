@@ -498,6 +498,7 @@ static void __init tegra_molly_late_init(void)
 	molly_boost_emc_clk_for_boot(true);
 	molly_emc_init();
 	molly_edp_init();
+	isomgr_init();
 	molly_panel_init();
 #ifdef CONFIG_TEGRA_WDT_RECOVERY
 	tegra_wdt_recovery_init();
