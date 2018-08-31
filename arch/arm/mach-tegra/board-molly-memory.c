@@ -19,15 +19,15 @@
 
 #include <linux/kernel.h>
 #include <linux/init.h>
-#include <linux/platform_data/tegra_emc.h>
+#include <linux/platform_data/tegra_emc_pdata.h>
 
 #include "board.h"
 #include "board-molly.h"
 
 #include "tegra-board-id.h"
 #include "tegra11_emc.h"
-#include "fuse.h"
 #include "devices.h"
+#include "common.h"
 
 static struct tegra11_emc_table molly_evt_h5tc4g63afr_pba_T40X_table[] = {
 	{
