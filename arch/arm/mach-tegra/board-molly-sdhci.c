@@ -148,7 +148,7 @@ static struct embedded_sdio_data embedded_sdio_data0 = {
 };
 #endif
 
-static struct tegra_sdhci_platform_data tegra_sdhci_platform_data0 = {
+struct tegra_sdhci_platform_data tegra_sdhci_platform_data0 = {
 	.mmc_data = {
 		.register_status_notify	= molly_wifi_status_register,
 #ifdef CONFIG_MMC_EMBEDDED_SDIO
@@ -170,7 +170,7 @@ static struct tegra_sdhci_platform_data tegra_sdhci_platform_data0 = {
 	.uhs_mask = MMC_UHS_MASK_DDR50,
 };
 
-static struct tegra_sdhci_platform_data tegra_sdhci_platform_data3 = {
+struct tegra_sdhci_platform_data tegra_sdhci_platform_data3 = {
 	.cd_gpio = -1,
 	.wp_gpio = -1,
 	.power_gpio = -1,
