@@ -3045,6 +3045,17 @@ static int tegra_dc_probe(struct platform_device *ndev)
 	}
 	dc->mode_dirty = false; /* ignore changes tegra_dc_set_out has done */
 
+	/* Adjust powergate_id based on dc->out for HDMI.
+	 * This can't be done above where powergate_id was first set
+	 * since dc->out isn't known yet.
+	 * This code assumes DISB depends on DISA. DC's powergate
+	 * code will have to change if dependency is removed
+	 */
+	if (dc->out && dc->out->type == TEGRA_DC_OUT_HDMI) {
+		pr_info("changing dc->powergate_id to DISB\n");
+		dc->powergate_id = TEGRA_POWERGATE_DISB;
+	}
+
 #ifndef CONFIG_TEGRA_ISOMGR
 		/*
 		 * The emc is a shared clock, it will be set based on
