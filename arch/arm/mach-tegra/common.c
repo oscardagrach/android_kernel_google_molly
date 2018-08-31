@@ -374,29 +374,28 @@ static __initdata struct tegra_clk_init_table tegra11x_clk_init_table[] = {
 	{ "sbc4.sclk",	NULL,		40000000,	false},
 	{ "sbc5.sclk",	NULL,		40000000,	false},
 	{ "sbc6.sclk",	NULL,		40000000,	false},
-#ifdef CONFIG_TEGRA_DUAL_CBUS
-	{ "c2bus",	"pll_c2",	250000000,	false },
-	{ "c3bus",	"pll_c3",	250000000,	false },
-	{ "pll_c",	NULL,		624000000,	false },
-#else
-	{ "cbus",	"pll_c",	250000000,	false },
-#endif
-	{ "pll_c_out1",	"pll_c",	150000000,	false },
 #ifdef CONFIG_TEGRA_PLLM_SCALED
 	{ "vi",		"pll_p",	0,		false},
 #endif
 #ifdef CONFIG_TEGRA_SOCTHERM
+#ifdef CONFIG_MACH_MOLLY
+	{ "soc_therm",	"pll_p",	51000000,	false },
+#else
 	{ "soc_therm",	"pll_p",	136000000,	false },
+#endif
 	{ "tsensor",	"clk_m",	500000,		false },
 #endif
-	{ "csite",	NULL,		0,		true },
 	{ NULL,		NULL,		0,		0},
 };
 static __initdata struct tegra_clk_init_table tegra11x_cbus_init_table[] = {
 #ifdef CONFIG_TEGRA_DUAL_CBUS
 	{ "c2bus",	"pll_c2",	250000000,	false },
 	{ "c3bus",	"pll_c3",	250000000,	false },
+#ifdef CONFIG_MACH_MOLLY
+	{ "pll_c",	NULL,		600000000,	false },
+#else
 	{ "pll_c",	NULL,		624000000,	false },
+#endif
 #else
 	{ "cbus",	"pll_c",	250000000,	false },
 #endif
