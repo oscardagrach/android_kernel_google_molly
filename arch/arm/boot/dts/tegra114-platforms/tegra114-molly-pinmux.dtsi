@@ -4,8 +4,8 @@
 	pinmux: pinmux {
 		pinctrl-names = "default", "drive", "unused";
 		pinctrl-0 = <&pinmux_default>;
-        pinctrl-1 = <&drive_default>;
-        pinctrl-2 = <&pinmux_unused_lowpower>;
+		pinctrl-1 = <&drive_default>;
+		pinctrl-2 = <&pinmux_unused_lowpower>;
 
 		pinmux_default: default {
 			cam_i2c_scl_pbb1 {
@@ -424,7 +424,7 @@
 			};
 		};
 
-		drive_default: drive {
+		drive_default: drive_pins {
 			drive_sdio1 {
 				nvidia,pins = "drive_sdio1";
 				nvidia,high-speed-mode = <TEGRA_PIN_ENABLE>;
@@ -448,7 +448,7 @@
 			};
 		};
 
-		pinmux_unused_lowpower: unused {
+		pinmux_unused_lowpower: unused_pins {
             clk1_out_pw4 {
 				nvidia,pins = "clk1_out_pw4";
 				nvidia,function = "rsvd4";
