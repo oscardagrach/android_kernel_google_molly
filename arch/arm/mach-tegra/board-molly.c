@@ -86,6 +86,8 @@
 #include "tegra-board-id.h"
 #include "tegra-of-dev-auxdata.h"
 
+static struct board_info board_info;
+
 int molly_hw_rev;
 module_param(molly_hw_rev, int, S_IRUGO);
 MODULE_PARM_DESC(molly_hw_rev, "hardware revision");
@@ -497,7 +499,6 @@ static void __init tegra_molly_late_init(void)
 	molly_emc_init();
 	molly_edp_init();
 	molly_panel_init();
-	molly_pmon_init();
 #ifdef CONFIG_TEGRA_WDT_RECOVERY
 	tegra_wdt_recovery_init();
 #endif

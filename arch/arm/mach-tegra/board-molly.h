@@ -81,3 +81,5 @@ int molly_edp_init(void);
 int molly_panel_init(void);
 int molly_sensors_init(void);
 int molly_soctherm_init(void);
+
+#endif
