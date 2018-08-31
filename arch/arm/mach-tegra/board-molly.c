@@ -32,28 +32,28 @@
 #include <linux/gpio.h>
 #include <linux/input.h>
 #include <linux/platform_data/tegra_usb.h>
-#include <linux/platform_data/tegra_xusb.h>
 #include <linux/spi/spi.h>
-#include <linux/tegra_uart.h>
+#include <linux/platform_data/serial-tegra.h>
 #include <linux/memblock.h>
 #include <linux/moduleparam.h>
 #include <linux/reboot.h>
-#include <linux/spi-tegra.h>
+#include <linux/spi/spi-tegra.h>
 #include <linux/rfkill-gpio.h>
 #include <linux/skbuff.h>
 #include <linux/regulator/consumer.h>
+#include <linux/usb/tegra_usb_phy.h>
 #include <linux/of_platform.h>
 #include <linux/edp.h>
+#include <linux/irqchip/tegra.h>
+#include <linux/clk/tegra.h>
+#include <linux/clocksource.h>
+#include <linux/tegra_fiq_debugger.h>
+#include <linux/irqchip.h>
+#include <linux/leds.h>
 
-#include <asm/hardware/gic.h>
-
-#include <mach/clk.h>
-#include <mach/iomap.h>
 #include <mach/irqs.h>
 #include <mach/pinmux.h>
 #include <mach/pinmux-t11.h>
-#include <mach/iomap.h>
-#include <mach/io.h>
 #include <mach/io_dpd.h>
 #include <mach/i2s.h>
 #include <mach/tegra_asoc_pdata.h>
@@ -61,14 +61,18 @@
 #include <asm/mach/arch.h>
 #include <asm/setup.h>
 #include <asm/system_info.h>
-#include <mach/usb_phy.h>
 #include <mach/gpio-tegra.h>
-#include <mach/tegra_fiq_debugger.h>
 #include <linux/aah_io.h>
 #include <linux/athome_radio.h>
 #include <linux/nct1008.h>
+
 #include <mach/hardware.h>
 #include <mach/thermal.h>
+#include <mach/io_dpd.h>
+#include <mach/i2s.h>
+#include <mach/isomgr.h>
+#include <mach/gpio-tegra.h>
+#include <mach/xusb.h>
 
 #include "board.h"
 #include "board-common.h"
@@ -76,10 +80,11 @@
 #include "board-molly.h"
 #include "devices.h"
 #include "gpio-names.h"
-#include "fuse.h"
+#include "iomap.h"
 #include "pm.h"
-#include "pm-irq.h"
 #include "common.h"
+#include "tegra-board-id.h"
+#include "tegra-of-dev-auxdata.h"
 
 int molly_hw_rev;
 module_param(molly_hw_rev, int, S_IRUGO);
