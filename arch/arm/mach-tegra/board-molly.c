@@ -701,12 +701,16 @@ static void molly_power_off(void)
 	machine_restart("shutdown");
 }
 
-static void __init tegra_molly_init(void)
+static void __init tegra_molly_early_init(void)
 {
-	molly_init_hw_rev();
+    molly_init_hw_rev();
 	tegra_clk_init_from_table(molly_clk_init_table);
 	tegra_clk_verify_parents();
 	tegra_soc_device_init("molly");
+}
+
+static void __init tegra_molly_late_init(void)
+{
 	tegra_enable_pinmux();
 	molly_pinmux_init();
 	molly_i2c_init();
@@ -734,23 +738,58 @@ static void __init tegra_molly_init(void)
 	tegra_register_fuse();
 
 	pm_power_off = molly_power_off;
+    molly_boost_emc_clk_for_boot(false);
 }
 
-static int __init tegra_molly_late_init(void)
-{
-	molly_boost_emc_clk_for_boot(false);
-	return 0;
-}
-late_initcall(tegra_molly_late_init);
+#ifdef CONFIG_USE_OF
+struct of_dev_auxdata molly_auxdata_lookup[] __initdata = {
+    OF_DEV_AUXDATA("nvidia,tegra114-sdhci", 0x78000600, "sdhci-tegra.3", NULL),
+    OF_DEV_AUXDATA("nvidia,tegra114-sdhci", 0x78000000, "sdhci-tegra.0", &tegra_sdhci_platform_data0),
+	OF_DEV_AUXDATA("nvidia,tegra114-host1x", TEGRA_HOST1X_BASE, "host1x",
+				NULL),
+	OF_DEV_AUXDATA("nvidia,tegra114-gr3d", TEGRA_GR3D_BASE, "gr3d",
+				NULL),
+	OF_DEV_AUXDATA("nvidia,tegra114-gr2d", TEGRA_GR2D_BASE, "gr2d",
+				NULL),
+	OF_DEV_AUXDATA("nvidia,tegra114-msenc", TEGRA_MSENC_BASE, "msenc",
+				NULL),
+	OF_DEV_AUXDATA("nvidia,tegra114-vi", TEGRA_VI_BASE, "vi",
+				NULL),
+	OF_DEV_AUXDATA("nvidia,tegra114-isp", TEGRA_ISP_BASE, "isp",
+				NULL),
+	OF_DEV_AUXDATA("nvidia,tegra114-tsec", TEGRA_TSEC_BASE, "tsec",
+				NULL),
+	T114_SPI_OF_DEV_AUXDATA,
+	OF_DEV_AUXDATA("nvidia,tegra114-apbdma", 0x6000a000, "tegra-apbdma",
+				NULL),
+	OF_DEV_AUXDATA("nvidia,tegra114-hsuart", 0x70006000, "serial-tegra.0",
+				NULL),
+	OF_DEV_AUXDATA("nvidia,tegra114-hsuart", 0x70006300, "serial-tegra.3",
+				NULL),
+    T114_I2C_OF_DEV_AUXDATA,
+	T114_SPI_OF_DEV_AUXDATA,
+	OF_DEV_AUXDATA("nvidia,tegra114-xhci", 0x70090000, "tegra-xhci",
+				NULL),
+	OF_DEV_AUXDATA("nvidia,tegra114-nvavp", 0x60001000, "nvavp",
+				NULL),
+    OF_DEV_AUXDATA("nvidia,tegra114-pwm", 0x7000a000, "tegra-pwm", NULL),
+	OF_DEV_AUXDATA("nvidia,tegra114-efuse", TEGRA_FUSE_BASE, "tegra-fuse",
+				NULL),
+	{}
+};
+#endif
 
 static void __init tegra_molly_dt_init(void)
 {
-#ifdef CONFIG_USE_OF
-	of_platform_populate(NULL,
-		of_default_bus_match_table, NULL, NULL);
-#endif
+    tegra_get_board_info(&board_info);
 
-	tegra_molly_init();
+    tegra_molly_early_init();
+
+	of_platform_populate(NULL,
+		of_default_bus_match_table, molly_auxdata_lookup,
+		&platform_bus);
+
+	tegra_molly_late_init();
 }
 
 static void __init tegra_molly_reserve(void)
