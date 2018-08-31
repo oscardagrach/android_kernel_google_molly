@@ -59,6 +59,8 @@
 #include "tegra11_soctherm.h"
 #include "iomap.h"
 
+#if MOLLY_ON_DALMORE == 0
+
 #define PMC_CTRL		0x0
 #define PMC_CTRL_INTR_LOW	(1 << 17)
 
@@ -91,6 +93,9 @@ static struct regulator_consumer_supply palmas_smps7_supply[] = {
 /* vdd_1v8 */
 static struct regulator_consumer_supply palmas_smps8_supply[] = {
 	REGULATOR_SUPPLY("vddio", NULL), /* VIO_IN */
+#if 0 /* molly has no camera */
+	REGULATOR_SUPPLY("vddio_cam", "vi"), /* VDDIO_CAM */
+#endif
 	REGULATOR_SUPPLY("vdd", "2-004c"), /* VDD of TMP451 */
 	REGULATOR_SUPPLY("vddio_sys", NULL), /* VDDIO_SYS */
 	REGULATOR_SUPPLY("avdd_osc", NULL), /* AVDD_OSC */
@@ -129,7 +134,7 @@ static struct regulator_consumer_supply palmas_smps9_supply[] = {
 };
 
 /* vdd_hdmi_5v0 */
-static struct regulator_consumer_supply palmas_smps10_supply[] = {
+static struct regulator_consumer_supply palmas_smps10_out1_supply[] = {
 	/* 5V_SYS of HDMI level shifer, always on */
         REGULATOR_SUPPLY("vdd_hdmi_5v0", "tegradc.0"),
 };
@@ -237,7 +242,7 @@ PALMAS_REGS_PDATA(smps8, 1800,  1800, NULL, 1, 1, 1, NORMAL,
 PALMAS_REGS_PDATA(smps9, 2900,  2900, NULL, 1, 0, 1, NORMAL,
 		  0, 0, 0, 0, 0);
 /* vdd_hdmi_5v0 - always on, hdmi level shifter */
-PALMAS_REGS_PDATA(smps10, 5000, 5000, NULL, 1, 0, 1, 0, 0, 0, 0, 0, 0);
+PALMAS_REGS_PDATA(smps10_out1, 5000, 5000, NULL, 1, 0, 1, 0, 0, 0, 0, 0, 0);
 
 /* va_pllx - boot on? - 1.05V, should be always on */
 PALMAS_REGS_PDATA(ldo1, 1050,  1050, palmas_rails(smps7), 1, 0, 1, 0,
@@ -277,7 +282,8 @@ static struct regulator_init_data *molly_reg_data[PALMAS_NUM_REGS] = {
 	PALMAS_REG_PDATA(smps7),
 	PALMAS_REG_PDATA(smps8),
 	PALMAS_REG_PDATA(smps9),
-	PALMAS_REG_PDATA(smps10),
+    NULL,
+	PALMAS_REG_PDATA(smps10_out1),
 	PALMAS_REG_PDATA(ldo1),
 	PALMAS_REG_PDATA(ldo2),
 	PALMAS_REG_PDATA(ldo3),
@@ -286,6 +292,11 @@ static struct regulator_init_data *molly_reg_data[PALMAS_NUM_REGS] = {
 	NULL,
 	NULL,
 	PALMAS_REG_PDATA(ldo8),
+	NULL,
+	NULL,
+	NULL,
+	NULL,
+	NULL,
 	NULL,
 	PALMAS_REG_PDATA(ldoln),
 	PALMAS_REG_PDATA(ldousb),
@@ -307,7 +318,8 @@ static struct palmas_reg_init *molly_reg_init[PALMAS_NUM_REGS] = {
 	PALMAS_REG_INIT_DATA(smps7), /* SMPS7 */
 	PALMAS_REG_INIT_DATA(smps8), /* SMPS8 */
 	PALMAS_REG_INIT_DATA(smps9), /* SMPS9 */
-	PALMAS_REG_INIT_DATA(smps10), /* SMPS10 */
+    NULL,
+	PALMAS_REG_INIT_DATA(smps10_out1), /* SMPS10 */
 	PALMAS_REG_INIT_DATA(ldo1),
 	PALMAS_REG_INIT_DATA(ldo2),
 	PALMAS_REG_INIT_DATA(ldo3),
@@ -316,6 +328,11 @@ static struct palmas_reg_init *molly_reg_init[PALMAS_NUM_REGS] = {
 	NULL,
 	NULL,
 	PALMAS_REG_INIT_DATA(ldo8),
+	NULL,
+	NULL,
+	NULL,
+	NULL,
+	NULL,
 	NULL,
 	PALMAS_REG_INIT_DATA(ldoln),
 	PALMAS_REG_INIT_DATA(ldousb),
@@ -326,36 +343,31 @@ static struct palmas_reg_init *molly_reg_init[PALMAS_NUM_REGS] = {
 	NULL,
 };
 
-/* Note: this can't be __initdata because palmas driver
- * keeps a reference to it after init.
- */
 static struct palmas_pmic_platform_data pmic_platform = {
-	.enable_ldo8_tracking = true,
-	.disabe_ldo8_tracking_suspend = true,
 	.disable_smps10_boost_suspend = false,
 };
 
-static struct palmas_pinctrl_config __initdata palmas_pincfg[] = {
-	PALMAS_PINMUX(POWERGOOD, POWERGOOD, DEFAULT, DEFAULT),
-	PALMAS_PINMUX(VAC, VAC, DEFAULT, DEFAULT),
-	PALMAS_PINMUX(GPIO0, GPIO, DEFAULT, DEFAULT),
-	PALMAS_PINMUX(GPIO1, GPIO, DEFAULT, DEFAULT),
-	PALMAS_PINMUX(GPIO2, GPIO, DEFAULT, DEFAULT),
-	PALMAS_PINMUX(GPIO3, GPIO, DEFAULT, DEFAULT),
-	PALMAS_PINMUX(GPIO4, GPIO, DEFAULT, DEFAULT),
-	PALMAS_PINMUX(GPIO5, GPIO, DEFAULT, DEFAULT),
-	PALMAS_PINMUX(GPIO6, GPIO, DEFAULT, DEFAULT),
-	PALMAS_PINMUX(GPIO7, GPIO, DEFAULT, DEFAULT),
+static struct palmas_pinctrl_config palmas_pincfg[] = {
+	PALMAS_PINMUX("powergood", "powergood", NULL, NULL),
+	PALMAS_PINMUX("vac", "vac", NULL, NULL),
+	PALMAS_PINMUX("gpio0", "gpio", NULL, NULL),
+	PALMAS_PINMUX("gpio1", "gpio", NULL, NULL),
+	PALMAS_PINMUX("gpio2", "gpio", NULL, NULL),
+	PALMAS_PINMUX("gpio3", "gpio", NULL, NULL),
+	PALMAS_PINMUX("gpio4", "gpio", NULL, NULL),
+	PALMAS_PINMUX("gpio5", "gpio", NULL, NULL),
+	PALMAS_PINMUX("gpio6", "gpio", NULL, NULL),
+	PALMAS_PINMUX("gpio7", "gpio", NULL, NULL),
 };
 
-static struct palmas_pinctrl_platform_data __initdata palmas_pinctrl_pdata = {
+static struct palmas_pinctrl_platform_data palmas_pinctrl_pdata = {
 	.pincfg = palmas_pincfg,
 	.num_pinctrl = ARRAY_SIZE(palmas_pincfg),
 	.dvfs1_enable = true,
 	.dvfs2_enable = false,
 };
 
-struct palmas_clk32k_init_data __initdata palmas_clk32k_pdata[] = {
+struct palmas_clk32k_init_data palmas_clk32k_pdata[] = {
 	{
 		.clk32k_id = PALMAS_CLOCK32KG,
 		.enable = true,
@@ -365,23 +377,26 @@ struct palmas_clk32k_init_data __initdata palmas_clk32k_pdata[] = {
 		.enable = true,
 	},
 };
-
-static struct palmas_platform_data __initdata palmas_pdata = {
-	.gpio_base = PALMAS_TEGRA_GPIO_BASE,
-	.irq_base = PALMAS_TEGRA_IRQ_BASE,
-	.pmic_pdata = &pmic_platform,
-	.clk32k_init_data = palmas_clk32k_pdata,
-	.clk32k_init_data_size = ARRAY_SIZE(palmas_clk32k_pdata),
 	/* On Molly we don't use the PMIC's power off function.  Instead
 	 * we use a Molly specific power off function that reboots into
 	 * the bootloader for shutdown.  This allows the bootloader to
 	 * clear the recovery retry bit if it is set.
 	 */
-	.use_power_off = false,
+static struct palmas_pm_platform_data palmas_pm_pdata = {
+    .use_power_off = false,
+};
+
+static struct palmas_platform_data palmas_pdata = {
+	.gpio_base = PALMAS_TEGRA_GPIO_BASE,
+	.irq_base = PALMAS_TEGRA_IRQ_BASE,
+	.pmic_pdata = &pmic_platform,
+    .pm_pdata = &palmas_pm_pdata,
+	.clk32k_init_data = palmas_clk32k_pdata,
+	.clk32k_init_data_size = ARRAY_SIZE(palmas_clk32k_pdata),
 	.pinctrl_pdata = &palmas_pinctrl_pdata,
 };
 
-static struct i2c_board_info __initdata palma_device[] = {
+static struct i2c_board_info palma_device[] = {
 	{
 		I2C_BOARD_INFO("tps65913", 0x58),
 		.irq		= INT_EXTERNAL_PMU,
@@ -456,13 +471,12 @@ static struct platform_device *fixed_reg_devs_molly[] = {
 	ADD_FIXED_REG(avdd_hdmi_pll),
 };
 
-static struct wake_lock molly_evt2_wakelock;
-
 int __init molly_palmas_regulator_init(void)
 {
 	void __iomem *pmc = IO_ADDRESS(TEGRA_PMC_BASE);
 	u32 pmc_ctrl;
 	int i;
+	struct device_node *np;
 
 	/* TPS65913: Normal state of INT request line is LOW.
 	 * configure the power management controller to trigger PMU
@@ -471,31 +485,19 @@ int __init molly_palmas_regulator_init(void)
 	pmc_ctrl = readl(pmc + PMC_CTRL);
 	writel(pmc_ctrl | PMC_CTRL_INTR_LOW, pmc + PMC_CTRL);
 
-	switch (molly_hw_rev) {
-	case MOLLY_REV_PROTO1:
-	case MOLLY_REV_PROTO2:
-	case MOLLY_REV_EVT1:
-	case MOLLY_REV_DVT1:
-		/* smps10 is not enabled for Molly prototype, EVT1 and DVT1.*/
-		pr_info("%s: smps10 is not enabled\n", __func__);
-		molly_reg_data[PALMAS_REG_SMPS10] = NULL;
-		molly_reg_init[PALMAS_REG_SMPS10] = NULL;
-		break;
-	case MOLLY_REV_EVT2:
-		/* smps10 is supplied by smps6 for EVT2, but for newer
-		 * versions is supplied from 5V input
-		 */
-		reg_idata_smps10.supply_regulator = palmas_rails(smps6);
-		break;
-	}
-
 	for (i = 0; i < PALMAS_NUM_REGS ; i++) {
 		pmic_platform.reg_data[i] = molly_reg_data[i];
 		pmic_platform.reg_init[i] = molly_reg_init[i];
 	}
 
-	i2c_register_board_info(4, palma_device,
-			ARRAY_SIZE(palma_device));
+	np = of_find_compatible_node(NULL, NULL, "ti,palmas");
+	if (np) {
+		pr_info("Palmas registration from DT power tree\n");
+	} else {
+		pr_info("Palmas registration from board power tree\n");
+		i2c_register_board_info(4, palma_device,
+				ARRAY_SIZE(palma_device));
+	}
 
 	/* The regulator details have complete constraints */
 	regulator_has_full_constraints();
@@ -538,16 +540,8 @@ static struct tegra_suspend_platform_data molly_suspend_data = {
 	.sysclkreq_high	= true,
 	.cpu_lp2_min_residency = 1000,
 	.min_residency_crail = 20000,
-#ifdef CONFIG_TEGRA_LP1_LOW_COREVOLTAGE
-	.lp1_lowvolt_support = false,
-	.i2c_base_addr = 0,
-	.pmuslave_addr = 0,
-	.core_reg_addr = 0,
-	.lp1_core_volt_low_cold = 0,
-	.lp1_core_volt_low = 0,
-	.lp1_core_volt_high = 0,
-#endif
 };
+
 #ifdef CONFIG_ARCH_TEGRA_HAS_CL_DVFS
 /* board parameters for cpu dfll */
 static struct tegra_cl_dvfs_cfg_param molly_cl_dvfs_param = {
@@ -632,19 +626,6 @@ int __init molly_suspend_init(void)
 
 static __init int molly_suspend_late_init(void)
 {
-	if (molly_hw_rev == MOLLY_REV_EVT2) {
-		/* This is a workaround for a hardware bug on Molly EVT2.
-		 * On Molly EVT2, the 10K ohm pull up resistor on
-		 * ENET_RESET_N_3V3 pin is removed accidentally, which causes
-		 * SMSC LAN9730 would be reset every time when Molly EVT2
-		 * enters LP0.
-		 */
-		wake_lock_init(&molly_evt2_wakelock, WAKE_LOCK_SUSPEND,
-			"molly_evt2_not_support_lp0");
-		wake_lock(&molly_evt2_wakelock);
-		pr_info("%s: WAR: acquire a wakelock to prevent enter suspend\n",
-			__func__);
-	}
 	return 0;
 }
 late_initcall(molly_suspend_late_init);
@@ -807,10 +788,12 @@ int __init molly_soctherm_init(void)
 	tegra_platform_edp_init(molly_soctherm_data.therm[THERM_CPU].trips,
 			&molly_soctherm_data.therm[THERM_CPU].num_trips,
 			8000); /* edp temperature margin */
-	tegra_add_tj_trips(molly_soctherm_data.therm[THERM_CPU].trips,
+	tegra_add_cpu_vmax_trips(molly_soctherm_data.therm[THERM_CPU].trips,
 			&molly_soctherm_data.therm[THERM_CPU].num_trips);
-	tegra_add_vc_trips(molly_soctherm_data.therm[THERM_CPU].trips,
+	tegra_add_core_edp_trips(molly_soctherm_data.therm[THERM_CPU].trips,
 			&molly_soctherm_data.therm[THERM_CPU].num_trips);
 
 	return tegra11_soctherm_init(&molly_soctherm_data);
 }
+
+#endif
