@@ -152,23 +152,10 @@ static int molly_hdmi_postsuspend(void)
 
 static int molly_hdmi_hotplug_init(struct device *dev)
 {
-#if MOLLY_ON_DALMORE == 1
-	if (!molly_hdmi_vddio) {
-		molly_hdmi_vddio = regulator_get(dev, "vdd_hdmi_5v0");
-		if (WARN_ON(IS_ERR(molly_hdmi_vddio))) {
-			pr_err("%s: couldn't get regulator vdd_hdmi_5v0: %ld\n",
-				__func__, PTR_ERR(molly_hdmi_vddio));
-				molly_hdmi_vddio = NULL;
-		} else {
-			regulator_enable(molly_hdmi_vddio);
-		}
-	}
-#else
 	/* no regulator needed to power the level shifter for
 	 * HDMI on molly.  there is a HDMI_EN control GPIO
 	 * we need to set to enable the level shifter though.
 	 */
-#endif
 
 	return 0;
 }
@@ -441,7 +428,6 @@ int __init molly_panel_init(void)
 	gpio_request(MOLLY_HDMI_HPD, "hdmi_hpd");
 	gpio_direction_input(MOLLY_HDMI_HPD);
 
-#if MOLLY_ON_DALMORE == 0
 	err = gpio_request(MOLLY_HDMI_LS_EN, "hdmi_ls_en");
 	pr_info("%s: gpio_request(hdmi_ls_en) returned %d\n",
 		__func__, err);
@@ -452,7 +438,6 @@ int __init molly_panel_init(void)
 	err = gpio_direction_output(MOLLY_HDMI_LS_EN, 1);
 	pr_info("%s: gpio_direction_output(hdmi_ls_en, 1) returned %d\n",
 		__func__, err);
-#endif
 
 	/* Copy the bootloader fb to the fb. */
 	__tegra_move_framebuffer(&molly_nvmap_device,

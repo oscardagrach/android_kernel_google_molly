@@ -153,14 +153,6 @@ static __initdata struct tegra_pingroup_config molly_pinmux_common[] = {
 	/* HDMI_EN */
 	GPIO_PINMUX(SPDIF_IN, NORMAL, NORMAL, OUTPUT, DISABLE),
 
-#if MOLLY_ON_DALMORE == 1
-	/* on dalmore, this is TEMP_ALERT for nct */
-	DEFAULT_PINMUX(GPIO_X6_AUD,   SPI6,        PULL_UP,   TRISTATE, INPUT),
-
-	/* on dalmore, this is our UI_SWITCH */
-	DEFAULT_PINMUX(KB_ROW2, KBC, PULL_UP, NORMAL, INPUT),
-#endif
-
 };
 
 static __initdata struct tegra_pingroup_config molly_pinmux_override_dvt1[] = {
@@ -187,7 +179,6 @@ static __initdata struct tegra_pingroup_config unused_pins_lowpower[] = {
 	UNUSED_PINMUX(DAP2_SCLK),
 	UNUSED_PINMUX(GPIO_X4_AUD),
 	UNUSED_PINMUX(GPIO_X5_AUD),
-#if MOLLY_ON_DALMORE == 0
 	/* Needed on Dalmore for TEMP_ALERT
 	 * This is on different pin for real molly
 	 */
@@ -196,7 +187,6 @@ static __initdata struct tegra_pingroup_config unused_pins_lowpower[] = {
 	 * This is on different pin for real molly
 	 */
 	UNUSED_PINMUX(GPIO_X7_AUD),
-#endif
 	UNUSED_PINMUX(GPIO_W2_AUD),
 	UNUSED_PINMUX(GPIO_W3_AUD),
 	UNUSED_PINMUX(DVFS_PWM),
@@ -210,12 +200,10 @@ static __initdata struct tegra_pingroup_config unused_pins_lowpower[] = {
 	UNUSED_PINMUX(GPIO_PV0),
 	UNUSED_PINMUX(GPIO_PV1),
 	UNUSED_PINMUX(ULPI_CLK),
-#if MOLLY_ON_DALMORE == 0
 	/* something that I can't figure out from schematic
 	 * requires this on dalmore or else hdmi/hdcp fails
 	 */
 	UNUSED_PINMUX(ULPI_DATA0),
-#endif
 	UNUSED_PINMUX(ULPI_DATA1),
 	UNUSED_PINMUX(ULPI_DATA2),
 	UNUSED_PINMUX(ULPI_DATA3),
@@ -242,10 +230,8 @@ static __initdata struct tegra_pingroup_config unused_pins_lowpower[] = {
 	UNUSED_PINMUX(GMI_AD8),
 	UNUSED_PINMUX(GMI_AD9),
 	UNUSED_PINMUX(GMI_ADV_N),
-#if MOLLY_ON_DALMORE == 0
 	/* Needed for dalmore only. EN_VDDIO_VID for display */
 	UNUSED_PINMUX(GMI_CLK),
-#endif
 	UNUSED_PINMUX(GMI_CS2_N),
 	UNUSED_PINMUX(GMI_CS3_N),
 	UNUSED_PINMUX(GMI_CS6_N),
@@ -271,13 +257,11 @@ static __initdata struct tegra_pingroup_config unused_pins_lowpower[] = {
 
 	UNUSED_PINMUX(KB_ROW0),
 	UNUSED_PINMUX(KB_ROW1),
-#if MOLLY_ON_DALMORE == 0
 	/* #if 0 to be removed once we are off of dalmore. for
 	 * now, this is our UI_SWITCH on dalmore so this pin
 	 * is used.
 	 */
 	UNUSED_PINMUX(KB_ROW2),
-#endif
 	UNUSED_PINMUX(KB_ROW3),
 
 	/* ENET_PME_SEL is connected on EVT2 but is not used */
@@ -312,12 +296,6 @@ static __initdata struct tegra_pingroup_config unused_pins_lowpower[] = {
 static struct gpio_init_pin_info init_gpio_mode_molly_common[] = {
 	GPIO_INIT_PIN_MODE(TEGRA_GPIO_PX4, false, 0),
 	GPIO_INIT_PIN_MODE(TEGRA_GPIO_PX5, true, 0),
-#if MOLLY_ON_DALMORE == 1
-	/* Remove later when off dalmore, TEMP_ALERT */
-	GPIO_INIT_PIN_MODE(TEGRA_GPIO_PX6, true, 0),
-	/* Remove later when off dalmore, WLAN_RESET_N */
-	GPIO_INIT_PIN_MODE(TEGRA_GPIO_PX7, false, 0),
-#endif
 	GPIO_INIT_PIN_MODE(TEGRA_GPIO_PW2, true, 0),
 	GPIO_INIT_PIN_MODE(TEGRA_GPIO_PW3, true, 0),
 	GPIO_INIT_PIN_MODE(TEGRA_GPIO_PX1, true, 0),

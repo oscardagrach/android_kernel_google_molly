@@ -208,11 +208,7 @@ static struct tegra_i2c_platform_data molly_i2c5_platform_data = {
  *                                                                            *
  ******************************************************************************/
 static struct aah_io_platform_data aah_io_data = {
-#if MOLLY_ON_DALMORE == 0
 	.key_gpio = TEGRA_GPIO_PQ5, /* molly's UI_SWITCH, KB_COL5/GPIO_PQ5 */
-#else
-	.key_gpio = TEGRA_GPIO_PR2, /* dalmore's volume+ button for now */
-#endif
 	.key_code = KEY_CONNECT, /* hardware pairing button */
 };
 
@@ -334,36 +330,14 @@ static struct i2c_board_info __initdata nct1008_i2c_board_info[] = {
 	},
 };
 
-#if MOLLY_ON_DALMORE == 1
-#include "tegra-board-id.h"
-#else
 #define TEMP_ALERT_GPIO TEGRA_GPIO_PJ0
-#endif
 
 static void __init temp_sensor_init(void)
 {
 	int nct1008_port;
 	int ret = 0;
 
-#if MOLLY_ON_DALMORE == 1
-	struct board_info board_info;
-
-	tegra_get_board_info(&board_info);
-
-	if (board_info.board_id == BOARD_E1611) {
-		if (board_info.fab == 0x04)
-			nct1008_port = TEGRA_GPIO_PO4;
-		else
-			nct1008_port = TEGRA_GPIO_PX6;
-	} else {
-		nct1008_port = TEGRA_GPIO_PX6;
-		pr_err("Warning: nct alert_port assumed TEGRA_GPIO_PX6" \
-			" for unknown dalmore board id E%d\n",
-			board_info.board_id);
-	}
-#else
 	nct1008_port = TEGRA_GPIO_PJ0;
-#endif
 
 	tegra_add_cdev_trips(nct1008_pdata.trips, &nct1008_pdata.num_trips);
 
@@ -384,15 +358,9 @@ static void __init temp_sensor_init(void)
 		return;
 	}
 
-#if MOLLY_ON_DALMORE == 1
-	/* dalmore has thermal sensor on GEN1-I2C, i.e. instance 0 */
-	i2c_register_board_info(0, nct1008_i2c_board_info,
-				ARRAY_SIZE(nct1008_i2c_board_info));
-#else
 	/* molly thermal sensor on I2C3/CAM_I2C, i.e. instance 2 */
 	i2c_register_board_info(2, nct1008_i2c_board_info,
 				ARRAY_SIZE(nct1008_i2c_board_info));
-#endif
 }
 
 static void __init molly_i2c_init(void)

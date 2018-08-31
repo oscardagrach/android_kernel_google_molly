@@ -58,8 +58,6 @@
 #include "tegra11_soctherm.h"
 #include "tegra3_tsensor.h"
 
-#if MOLLY_ON_DALMORE == 0
-
 #define PMC_CTRL		0x0
 #define PMC_CTRL_INTR_LOW	(1 << 17)
 
@@ -92,9 +90,6 @@ static struct regulator_consumer_supply palmas_smps7_supply[] = {
 /* vdd_1v8 */
 static struct regulator_consumer_supply palmas_smps8_supply[] = {
 	REGULATOR_SUPPLY("vddio", NULL), /* VIO_IN */
-#if 0 /* molly has no camera */
-	REGULATOR_SUPPLY("vddio_cam", "vi"), /* VDDIO_CAM */
-#endif
 	REGULATOR_SUPPLY("vdd", "2-004c"), /* VDD of TMP451 */
 	REGULATOR_SUPPLY("vddio_sys", NULL), /* VDDIO_SYS */
 	REGULATOR_SUPPLY("avdd_osc", NULL), /* AVDD_OSC */
@@ -818,5 +813,3 @@ int __init molly_soctherm_init(void)
 
 	return tegra11_soctherm_init(&molly_soctherm_data);
 }
-
-#endif

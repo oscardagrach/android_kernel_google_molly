@@ -42,11 +42,7 @@
 #include "fuse.h"
 
 #define MOLLY_WLAN_PWR	TEGRA_GPIO_PCC5
-#if MOLLY_ON_DALMORE == 1
-#define MOLLY_WLAN_RST	TEGRA_GPIO_PX7
-#else
 #define MOLLY_WLAN_RST	TEGRA_GPIO_PW5
-#endif
 #define MOLLY_WLAN_WOW	TEGRA_GPIO_PU5
 #define MOLLY_BT_HOST_WAKE	TEGRA_GPIO_PU6
 #define FUSE_CORE_SPEEDO_0	0x134
@@ -233,113 +229,14 @@ static int molly_wifi_set_carddetect(int val)
 	return 0;
 }
 
-#if MOLLY_ON_DALMORE == 1
-static struct regulator *molly_vdd_com_3v3;
-static struct regulator *molly_vddio_com_1v8;
-#define MOLLY_VDD_WIFI_3V3 "vdd_wifi_3v3"
-#define MOLLY_VDD_WIFI_1V8 "vddio_wifi_1v8"
-#endif
-
-static int molly_wifi_regulator_enable(void)
-{
-	int ret = 0;
-
-#if MOLLY_ON_DALMORE == 1
-	/* Enable COM's vdd_com_3v3 regulator*/
-	if (IS_ERR_OR_NULL(molly_vdd_com_3v3)) {
-		molly_vdd_com_3v3 = regulator_get(&molly_wifi_device.dev,
-							MOLLY_VDD_WIFI_3V3);
-		if (IS_ERR_OR_NULL(molly_vdd_com_3v3)) {
-			pr_err("Couldn't get regulator "
-				MOLLY_VDD_WIFI_3V3 "\n");
-			return PTR_ERR(molly_vdd_com_3v3);
-		}
-
-		ret = regulator_enable(molly_vdd_com_3v3);
-		if (ret < 0) {
-			pr_err("Couldn't enable regulator "
-				MOLLY_VDD_WIFI_3V3 "\n");
-			regulator_put(molly_vdd_com_3v3);
-			molly_vdd_com_3v3 = NULL;
-			return ret;
-		}
-	}
-
-	/* Enable COM's vddio_com_1v8 regulator*/
-	if (IS_ERR_OR_NULL(molly_vddio_com_1v8)) {
-		molly_vddio_com_1v8 = regulator_get(&molly_wifi_device.dev,
-			MOLLY_VDD_WIFI_1V8);
-		if (IS_ERR_OR_NULL(molly_vddio_com_1v8)) {
-			pr_err("Couldn't get regulator "
-				MOLLY_VDD_WIFI_1V8 "\n");
-			regulator_disable(molly_vdd_com_3v3);
-
-			regulator_put(molly_vdd_com_3v3);
-			molly_vdd_com_3v3 = NULL;
-			return PTR_ERR(molly_vddio_com_1v8);
-		}
-
-		ret = regulator_enable(molly_vddio_com_1v8);
-		if (ret < 0) {
-			pr_err("Couldn't enable regulator "
-				MOLLY_VDD_WIFI_1V8 "\n");
-			regulator_put(molly_vddio_com_1v8);
-			molly_vddio_com_1v8 = NULL;
-
-			regulator_disable(molly_vdd_com_3v3);
-			regulator_put(molly_vdd_com_3v3);
-			molly_vdd_com_3v3 = NULL;
-			return ret;
-		}
-	}
-#endif
-
-	return ret;
-}
-
-static void molly_wifi_regulator_disable(void)
-{
-#if MOLLY_ON_DALMORE == 1
-	/* Disable COM's vdd_com_3v3 regulator*/
-	if (!IS_ERR_OR_NULL(molly_vdd_com_3v3)) {
-		regulator_disable(molly_vdd_com_3v3);
-		regulator_put(molly_vdd_com_3v3);
-		molly_vdd_com_3v3 = NULL;
-	}
-
-	/* Disable COM's vddio_com_1v8 regulator*/
-	if (!IS_ERR_OR_NULL(molly_vddio_com_1v8)) {
-		regulator_disable(molly_vddio_com_1v8);
-		regulator_put(molly_vddio_com_1v8);
-		molly_vddio_com_1v8 = NULL;
-	}
-#endif
-}
-
 static int molly_wifi_power(int on)
 {
 	int ret = 0;
-
-	pr_debug("%s: %d\n", __func__, on);
-	/* Enable regulators on wi-fi power on*/
-	if (on == 1) {
-		ret = molly_wifi_regulator_enable();
-		if (ret < 0) {
-			pr_err("Failed to enable wifi regulators\n");
-			return ret;
-		}
-	}
 
 	gpio_set_value(MOLLY_WLAN_PWR, on);
 	mdelay(100);
 	gpio_set_value(MOLLY_WLAN_RST, on);
 	mdelay(200);
-
-	/* Disable COM's regulators on wi-fi poer off*/
-	if (on != 1) {
-		pr_debug("Disabling COM regulators\n");
-		molly_wifi_regulator_disable();
-	}
 
 	return ret;
 }

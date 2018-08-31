@@ -21,31 +21,16 @@
 #ifndef _MACH_TEGRA_BOARD_MOLLY_H
 #define _MACH_TEGRA_BOARD_MOLLY_H
 
-#define MOLLY_ON_DALMORE 0
-
 #include <mach/gpio.h>
 #include <mach/irqs.h>
-
-#if MOLLY_ON_DALMORE == 1
-#include <linux/mfd/tps65090.h>
-#endif
 
 #include "gpio-names.h"
 
 /* External peripheral act as gpio */
 #define PALMAS_TEGRA_GPIO_BASE	TEGRA_NR_GPIOS
 
-#if MOLLY_ON_DALMORE == 1
-#define TPS65090_TEGRA_IRQ_BASE TEGRA_NR_IRQS
-#define TPS65090_TEGRA_IRQ_END	(TPS65090_TEGRA_IRQ_BASE + TPS65090_NUM_IRQ)
-/* External peripheral act as interrupt controller */
-/* MAX77663 IRQs */
-#define PALMAS_TEGRA_IRQ_BASE   TPS65090_TEGRA_IRQ_END
-#define PALMAS_TEGRA_IRQ_END	(PALMAS_TEGRA_IRQ_BASE + PALMAS_NUM_IRQ)
-#else
 #define PALMAS_TEGRA_IRQ_BASE   TEGRA_NR_IRQS
 #define PALMAS_TEGRA_IRQ_END	(PALMAS_TEGRA_IRQ_BASE + PALMAS_NUM_IRQ)
-#endif
 
 /* I2C related GPIOs */
 #define TEGRA_GPIO_I2C1_SCL		TEGRA_GPIO_PC4
@@ -95,5 +80,3 @@ int molly_edp_init(void);
 int molly_panel_init(void);
 int molly_pmon_init(void);
 int molly_soctherm_init(void);
-
-#endif
