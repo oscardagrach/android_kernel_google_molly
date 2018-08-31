@@ -309,8 +309,7 @@ struct tegra_hdmi_out molly_hdmi_out = {
 static struct tegra_dc_out molly_disp_out = {
 	.type		= TEGRA_DC_OUT_HDMI,
 	.flags		= TEGRA_DC_OUT_HOTPLUG_HIGH |
-			  TEGRA_DC_OUT_HOTPLUG_WAKE_LP0 |
-			  TEGRA_DC_OUT_FILTER_ALLOWED_MODES,
+			  TEGRA_DC_OUT_HOTPLUG_WAKE_LP0,
 	.parent_clk	= "pll_d_out0",
 
 	.dcc_bus	= 3,
@@ -322,7 +321,6 @@ static struct tegra_dc_out molly_disp_out = {
 	/* defaults until hotplug occurs */
 	.modes          = hdmi_panel_modes,
 	.n_modes        = ARRAY_SIZE(hdmi_panel_modes),
-	.v_refresh_tolerance = 200, /* +/- 0.2Hz in vertical refresh */
 
 	.align		= TEGRA_DC_ALIGN_MSB,
 	.order		= TEGRA_DC_ORDER_RED_BLUE,
@@ -368,21 +366,18 @@ static struct nvmap_platform_carveout molly_carveouts[] = {
 		.usage_mask	= NVMAP_HEAP_CARVEOUT_IRAM,
 		.base		= TEGRA_IRAM_BASE + TEGRA_RESET_HANDLER_SIZE,
 		.size		= TEGRA_IRAM_SIZE - TEGRA_RESET_HANDLER_SIZE,
-		.buddy_size	= 0, /* no buddy allocation for IRAM */
 	},
 	[1] = {
 		.name		= "generic-0",
 		.usage_mask	= NVMAP_HEAP_CARVEOUT_GENERIC,
 		.base		= 0, /* Filled in by molly_panel_init() */
 		.size		= 0, /* Filled in by molly_panel_init() */
-		.buddy_size	= SZ_32K,
 	},
 	[2] = {
 		.name		= "vpr",
 		.usage_mask	= NVMAP_HEAP_CARVEOUT_VPR,
 		.base		= 0, /* Filled in by molly_panel_init() */
 		.size		= 0, /* Filled in by molly_panel_init() */
-		.buddy_size	= SZ_32K,
 	},
 };
 
