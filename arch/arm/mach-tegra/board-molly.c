@@ -510,7 +510,7 @@ static void __init tegra_molly_late_init(void)
 
 #ifdef CONFIG_USE_OF
 struct of_dev_auxdata molly_auxdata_lookup[] __initdata = {
-    OF_DEV_AUXDATA("nvidia,tegra114-sdhci", 0x78000600, "sdhci-tegra.3", NULL),
+    OF_DEV_AUXDATA("nvidia,tegra114-sdhci", 0x78000600, "sdhci-tegra.3", tegra_sdhci_platform_data3),
     OF_DEV_AUXDATA("nvidia,tegra114-sdhci", 0x78000000, "sdhci-tegra.0", &tegra_sdhci_platform_data0),
 	OF_DEV_AUXDATA("nvidia,tegra114-host1x", TEGRA_HOST1X_BASE, "host1x",
 				NULL),
