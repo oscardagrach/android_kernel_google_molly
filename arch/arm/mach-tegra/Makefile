@@ -208,6 +208,17 @@ obj-${CONFIG_MACH_MACALLAN}             += board-macallan-panel.o
 obj-${CONFIG_MACH_MACALLAN}             += board-macallan-kbc.o
 obj-${CONFIG_MACH_MACALLAN}             += board-macallan-sensors.o
 
+obj-${CONFIG_MACH_MOLLY}                += board-molly.o
+obj-${CONFIG_MACH_MOLLY}                += board-molly-memory.o
+obj-${CONFIG_MACH_MOLLY}                += board-molly-pinmux.o
+obj-${CONFIG_MACH_MOLLY}                += board-molly-power.o
+obj-${CONFIG_MACH_MOLLY}                += board-molly-sensors.o
+obj-${CONFIG_MACH_MOLLY}                += board-molly-sdhci.o
+obj-${CONFIG_MACH_MOLLY}                += board-molly-panel.o
+obj-${CONFIG_MACH_MOLLY}                += board-molly-mlan.o
+obj-${CONFIG_MACH_MOLLY}                += panel-a-1080p-11-6.o
+obj-${CONFIG_MACH_MOLLY}                += panel-p-wuxga-10-1.o
+obj-${CONFIG_MACH_MOLLY}                += panel-s-wqxga-10-1.o
 
 obj-${CONFIG_MACH_TEGRA_PLUTO}          += board-pluto.o
 obj-${CONFIG_MACH_TEGRA_PLUTO}          += board-pluto-memory.o

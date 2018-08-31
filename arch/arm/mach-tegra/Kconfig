@@ -373,6 +373,12 @@ config MACH_MACALLAN
        help
          Support for NVIDIA MACALLAN development platform
 
+config MACH_MOLLY
+       bool "Molly board"
+       depends on ARCH_TEGRA_11x_SOC
+       help
+         Support for Molly device
+
 config MACH_TEGRA_PLUTO
        bool "Pluto board"
        depends on ARCH_TEGRA_11x_SOC
