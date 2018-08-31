@@ -21,9 +21,8 @@
 #ifndef _MACH_TEGRA_BOARD_MOLLY_H
 #define _MACH_TEGRA_BOARD_MOLLY_H
 
-#include <mach/gpio.h>
+#include <mach/gpio-tegra.h>
 #include <mach/irqs.h>
-
 #include "gpio-names.h"
 
 /* External peripheral act as gpio */
