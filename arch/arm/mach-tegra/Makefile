@@ -210,7 +210,7 @@ obj-${CONFIG_MACH_MACALLAN}             += board-macallan-sensors.o
 
 obj-${CONFIG_MACH_MOLLY}                += board-molly.o
 obj-${CONFIG_MACH_MOLLY}                += board-molly-memory.o
-obj-${CONFIG_MACH_MOLLY}                += board-molly-pinmux.o
+# obj-${CONFIG_MACH_MOLLY}                += board-molly-pinmux.o
 obj-${CONFIG_MACH_MOLLY}                += board-molly-power.o
 obj-${CONFIG_MACH_MOLLY}                += board-molly-sensors.o
 obj-${CONFIG_MACH_MOLLY}                += board-molly-sdhci.o
