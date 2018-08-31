@@ -338,55 +338,33 @@ static void __init molly_i2c_init(void)
 				ARRAY_SIZE(aah_io_i2c_board_info));
 }
 
-static struct platform_device *molly_uart_devices[] __initdata = {
-	&tegra_uarta_device,
-	&tegra_uartd_device,
+static struct tegra_serial_platform_data molly_uartd_pdata = {
+	.dma_req_selector = 19,
+	.modem_interrupt = false,
 };
-static struct uart_clk_parent uart_parent_clk[] = {
-	[0] = {.name = "clk_m"},
-	[1] = {.name = "pll_p"},
-#ifndef CONFIG_TEGRA_PLLM_RESTRICTED
-	[2] = {.name = "pll_m"},
-#endif
-};
-
-static struct tegra_uart_platform_data molly_uart_pdata;
-
-static void __init uart_debug_init(void)
-{
-	int debug_port_id;
-
-	debug_port_id = uart_console_debug_init(3);
-	if (debug_port_id < 0)
-		return;
-
-	molly_uart_devices[1] = uart_console_debug_device;
-}
 
 static void __init molly_uart_init(void)
 {
-	struct clk *c;
-	int i;
-
-	for (i = 0; i < ARRAY_SIZE(uart_parent_clk); ++i) {
-		c = tegra_get_clock_by_name(uart_parent_clk[i].name);
-		if (IS_ERR_OR_NULL(c)) {
-			pr_err("Not able to get the clock for %s\n",
-						uart_parent_clk[i].name);
-			continue;
-		}
-		uart_parent_clk[i].parent_clk = c;
-		uart_parent_clk[i].fixed_clk_rate = clk_get_rate(c);
-	}
-	molly_uart_pdata.parent_clk_list = uart_parent_clk;
-	molly_uart_pdata.parent_clk_count = ARRAY_SIZE(uart_parent_clk);
-	tegra_uarta_device.dev.platform_data = &molly_uart_pdata;
-	tegra_uartd_device.dev.platform_data = &molly_uart_pdata;
-
-	uart_debug_init();
-
+#ifndef CONFIG_USE_OF
+	tegra_uartd_device.dev.platform_data = &molly_uartd_pdata;
 	platform_add_devices(molly_uart_devices,
-				ARRAY_SIZE(molly_uart_devices));
+			ARRAY_SIZE(molly_uart_devices));
+#endif
+	tegra_uartd_device.dev.platform_data = &molly_uartd_pdata;
+	if (!is_tegra_debug_uartport_hs()) {
+		int debug_port_id = uart_console_debug_init(3);
+		if (debug_port_id < 0)
+			return;
+
+#ifdef CONFIG_TEGRA_FIQ_DEBUGGER
+		tegra_serial_debug_init_irq_mode(TEGRA_UARTD_BASE, INT_UARTD, NULL, -1, -1);
+#else
+		platform_device_register(uart_console_debug_device);
+#endif
+	} else {
+		tegra_uartd_device.dev.platform_data = &molly_uartd_pdata;
+		platform_device_register(&tegra_uartd_device);
+	}
 }
 
 static struct resource tegra_rtc_resources[] = {
@@ -740,7 +718,6 @@ static void __init tegra_molly_init(void)
 	molly_hsic_init();
 	molly_uart_init();
 	platform_add_devices(molly_devices, ARRAY_SIZE(molly_devices));
-	tegra_ram_console_debug_init();
 	tegra_io_dpd_init();
 	molly_regulator_init();
 	molly_sdhci_init();
@@ -753,7 +730,6 @@ static void __init tegra_molly_init(void)
 #ifdef CONFIG_TEGRA_WDT_RECOVERY
 	tegra_wdt_recovery_init();
 #endif
-	tegra_serial_debug_init(TEGRA_UARTD_BASE, INT_UARTD, NULL, -1, -1);
 	molly_soctherm_init();
 	tegra_register_fuse();
 
@@ -802,7 +778,6 @@ static void __init tegra_molly_reserve(void)
 	 * for the bootloader to keep in sync with it for
 	 * implementing "fastboot oem kmsg".
 	 */
-	tegra_ram_console_debug_reserve(meminfo.bank[0].start + SZ_1G, SZ_1M);
 }
 
 static const char * const molly_dt_board_compat[] = {
