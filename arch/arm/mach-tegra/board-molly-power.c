@@ -30,24 +30,25 @@
 #include <linux/regulator/fixed.h>
 #include <linux/mfd/palmas.h>
 #include <linux/mfd/tps65090.h>
-#include <linux/regulator/tps65090-regulator.h>
 #include <linux/regulator/tps51632-regulator.h>
 #include <linux/gpio.h>
 #include <linux/interrupt.h>
 #include <linux/regulator/userspace-consumer.h>
+#include <linux/pid_thermal_gov.h>
+#include <linux/tegra-soc.h>
+#include <linux/tegra-pmc.h>
 #include <linux/wakelock.h>
 
 #include <asm/mach-types.h>
 #include <linux/power/sbs-battery.h>
 
-#include <mach/iomap.h>
 #include <mach/irqs.h>
 #include <mach/edp.h>
 #include <mach/gpio-tegra.h>
-#include <mach/hardware.h>
 
 #include "cpu-tegra.h"
 #include "pm.h"
+#include "tegra-board-id.h"
 #include "board-pmu-defines.h"
 #include "board.h"
 #include "gpio-names.h"
@@ -56,7 +57,7 @@
 #include "tegra_cl_dvfs.h"
 #include "devices.h"
 #include "tegra11_soctherm.h"
-#include "tegra3_tsensor.h"
+#include "iomap.h"
 
 #define PMC_CTRL		0x0
 #define PMC_CTRL_INTR_LOW	(1 << 17)
