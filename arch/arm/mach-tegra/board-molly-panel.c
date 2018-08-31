@@ -53,11 +53,11 @@ struct platform_device * __init molly_host1x_init(void)
 	struct platform_device *pdev = NULL;
 
 #ifdef CONFIG_TEGRA_GRHOST
-	pdev = tegra11_register_host1x_devices();
-	if (!pdev) {
-		pr_err("host1x devices registration failed\n");
-		return NULL;
-	}
+	if (!of_have_populated_dt())
+		pdev = tegra11_register_host1x_devices();
+	else
+		pdev = to_platform_device(bus_find_device_by_name(
+			&platform_bus_type, NULL, "host1x"));
 #endif
 	return pdev;
 }
@@ -418,9 +418,6 @@ int __init molly_panel_init(void)
 		return -EINVAL;
 	}
 
-	gpio_request(MOLLY_HDMI_HPD, "hdmi_hpd");
-	gpio_direction_input(MOLLY_HDMI_HPD);
-
 	err = gpio_request(MOLLY_HDMI_LS_EN, "hdmi_ls_en");
 	pr_info("%s: gpio_request(hdmi_ls_en) returned %d\n",
 		__func__, err);
@@ -444,15 +441,19 @@ int __init molly_panel_init(void)
 	molly_disp_resources[2].end = tegra_fb_start + tegra_fb_size - 1;
 	molly_disp_device.dev.parent = &phost1x->dev;
 	err = platform_device_register(&molly_disp_device);
-	if (err)
-		return err;
+	if (err) {
+        pr_err("molly_display device registration failed\n");
+	    return err;
+    }
 
 #ifdef CONFIG_TEGRA_NVAVP
-	nvavp_device.dev.parent = &phost1x->dev;
-	err = platform_device_register(&nvavp_device);
-	if (err) {
-		pr_err("nvavp device registration failed\n");
-		return err;
+	if (!of_have_populated_dt()) {
+		nvavp_device.dev.parent = &phost1x->dev;
+		err = platform_device_register(&nvavp_device);
+		if (err) {
+			pr_err("nvavp device registration failed\n");
+			return err;
+		}
 	}
 #endif
 	return err;
