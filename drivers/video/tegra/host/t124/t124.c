@@ -36,11 +36,13 @@
 #include "tsec/tsec.h"
 #include "vi/vi.h"
 #include "isp/isp.h"
-#include "scale3d.h"
+#include "gr3d/scale3d.h"
 #include "chip_support.h"
 #include "nvhost_scale.h"
 
 #include "../../../../arch/arm/mach-tegra/iomap.h"
+
+static int t124_num_alloc_channels = 0;
 
 #define HOST_EMC_FLOOR 300000000
 #define VI_CLOCKGATE_DELAY 60
@@ -113,7 +115,6 @@ static struct resource isp_resources[] = {
 
 static struct platform_device tegra_isp01b_device;
 struct nvhost_device_data t124_isp_info = {
-	.num_channels	= 1,
 	/* FIXME: control clocks from user space instead of hard-coding here */
 	.moduleid        = NVHOST_MODULE_ISP,
 	.modulemutexes   = {NVMODMUTEX_ISP_0},
@@ -151,7 +152,6 @@ static struct resource ispb_resources[] = {
 
 
 struct nvhost_device_data t124_ispb_info = {
-	.num_channels	= 1,
 	/* FIXME: control clocks from user space instead of hard-coding here */
 	.moduleid        = (1 << 16) | NVHOST_MODULE_ISP,
 	.modulemutexes   = {NVMODMUTEX_ISP_1},
@@ -191,7 +191,6 @@ static struct resource vi_resources[] = {
 
 static struct platform_device tegra_vi01b_device;
 struct nvhost_device_data t124_vi_info = {
-	.num_channels	= 1,
 	/* FIXME: resolve powergating dependency with DIS */
 	/* FIXME: control clocks from user space instead of hard-coding here */
 	.moduleid         = NVHOST_MODULE_VI,
@@ -229,7 +228,6 @@ static struct platform_device tegra_vi01_device = {
 };
 
 struct nvhost_device_data t124_vib_info = {
-	.num_channels	= 1,
 	/* FIXME: resolve powergating dependency with DIS */
 	/* FIXME: control clocks from user space instead of hard-coding here */
 	.moduleid         = (1 << 16 | NVHOST_MODULE_VI),
@@ -275,8 +273,8 @@ static struct resource msenc_resources[] = {
 };
 
 struct nvhost_device_data t124_msenc_info = {
-	.num_channels	= 1,
 	.version	= NVHOST_ENCODE_MSENC_VER(3, 1),
+	.waitbases	= {NVWAITBASE_MSENC},
 	.class		= NV_VIDEO_ENCODE_MSENC_CLASS_ID,
 	.clocks		= {{"msenc", UINT_MAX, 0, TEGRA_MC_CLIENT_MSENC},
 			  {"emc", HOST_EMC_FLOOR} },
@@ -314,8 +312,8 @@ static struct resource tsec_resources[] = {
 };
 
 struct nvhost_device_data t124_tsec_info = {
-	.num_channels	= 1,
 	.version       = NVHOST_ENCODE_TSEC_VER(1, 0),
+	.waitbases     = {NVWAITBASE_TSEC},
 	.class         = NV_TSEC_CLASS_ID,
 	.exclusive     = true,
 	.clocks	       = {{"tsec", UINT_MAX, 0, TEGRA_MC_CLIENT_TSEC},
@@ -353,7 +351,6 @@ static struct resource vic03_resources[] = {
 };
 
 struct nvhost_device_data t124_vic_info = {
-	.num_channels	= 1,
 	.modulemutexes		= {NVMODMUTEX_VIC},
 	.clocks			= {{"vic03", UINT_MAX, 0, TEGRA_MC_CLIENT_VIC},
 				  {"emc", UINT_MAX} },
@@ -397,7 +394,6 @@ struct platform_device tegra_vic03_device = {
  */
 
 struct nvhost_device_data t132_isp_info = {
-	.num_channels	= 1,
 	/* FIXME: control clocks from user space instead of hard-coding here */
 	.moduleid        = NVHOST_MODULE_ISP,
 	.modulemutexes   = {NVMODMUTEX_ISP_0},
@@ -415,7 +411,6 @@ struct nvhost_device_data t132_isp_info = {
 };
 
 struct nvhost_device_data t132_ispb_info = {
-	.num_channels	= 1,
 	/* FIXME: control clocks from user space instead of hard-coding here */
 	.moduleid        = (1 << 16) | NVHOST_MODULE_ISP,
 	.modulemutexes   = {NVMODMUTEX_ISP_1},
@@ -433,7 +428,6 @@ struct nvhost_device_data t132_ispb_info = {
 };
 
 struct nvhost_device_data t132_vi_info = {
-	.num_channels	= 1,
 	/* FIXME: resolve powergating dependency with DIS */
 	/* FIXME: control clocks from user space instead of hard-coding here */
 	.moduleid         = NVHOST_MODULE_VI,
@@ -459,7 +453,6 @@ struct nvhost_device_data t132_vi_info = {
 };
 
 struct nvhost_device_data t132_vib_info = {
-	.num_channels	= 1,
 	/* FIXME: resolve powergating dependency with DIS */
 	/* FIXME: control clocks from user space instead of hard-coding here */
 	.moduleid         = (1 << 16 | NVHOST_MODULE_VI),
@@ -486,8 +479,8 @@ struct nvhost_device_data t132_vib_info = {
 };
 
 struct nvhost_device_data t132_msenc_info = {
-	.num_channels	= 1,
 	.version	= NVHOST_ENCODE_MSENC_VER(3, 1),
+	.waitbases	= {NVWAITBASE_MSENC},
 	.class		= NV_VIDEO_ENCODE_MSENC_CLASS_ID,
 	.clocks		= {{"msenc", UINT_MAX, 0, TEGRA_MC_CLIENT_MSENC},
 			  {"emc", HOST_EMC_FLOOR} },
@@ -502,8 +495,8 @@ struct nvhost_device_data t132_msenc_info = {
 };
 
 struct nvhost_device_data t132_tsec_info = {
-	.num_channels	= 1,
 	.version       = NVHOST_ENCODE_TSEC_VER(1, 0),
+	.waitbases     = {NVWAITBASE_TSEC},
 	.class         = NV_TSEC_CLASS_ID,
 	.exclusive     = true,
 	.clocks	       = {{"tsec", UINT_MAX, 0, TEGRA_MC_CLIENT_TSEC},
@@ -518,7 +511,6 @@ struct nvhost_device_data t132_tsec_info = {
 
 #ifdef CONFIG_ARCH_TEGRA_VIC
 struct nvhost_device_data t132_vic_info = {
-	.num_channels	= 1,
 	.modulemutexes		= {NVMODMUTEX_VIC},
 	.clocks			= {{"vic03", UINT_MAX, 0, TEGRA_MC_CLIENT_VIC},
 				  {"emc", UINT_MAX} },
@@ -596,16 +588,31 @@ struct platform_device *tegra12_register_host1x_devices(void)
 
 #include "host1x/host1x_channel.c"
 
-static void t124_set_nvhost_chanops(struct nvhost_channel *ch)
+static void t124_free_nvhost_channel(struct nvhost_channel *ch)
 {
+	nvhost_dbg_fn("");
+	nvhost_free_channel_internal(ch, &t124_num_alloc_channels);
+}
+
+static struct nvhost_channel *t124_alloc_nvhost_channel(
+		struct platform_device *dev)
+{
+	struct nvhost_device_data *pdata = nvhost_get_devdata(dev);
+	struct nvhost_channel *ch;
+	nvhost_dbg_fn("");
+	ch = nvhost_alloc_channel_internal(pdata->index,
+		nvhost_get_host(dev)->info.nb_channels,
+		&t124_num_alloc_channels);
 	if (ch)
 		ch->ops = host1x_channel_ops;
+	return ch;
 }
 
 int nvhost_init_t124_channel_support(struct nvhost_master *host,
        struct nvhost_chip_support *op)
 {
-	op->nvhost_dev.set_nvhost_chanops = t124_set_nvhost_chanops;
+	op->nvhost_dev.alloc_nvhost_channel = t124_alloc_nvhost_channel;
+	op->nvhost_dev.free_nvhost_channel = t124_free_nvhost_channel;
 
 	return 0;
 }

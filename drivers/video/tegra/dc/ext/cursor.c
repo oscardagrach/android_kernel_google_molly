@@ -524,7 +524,6 @@ int tegra_dc_ext_set_cursor_low_latency(struct tegra_dc_ext_user *user,
 		dma_buf_put(old_handle->buf);
 		kfree(old_handle);
 	}
-
 	return 0;
 
 unlock:

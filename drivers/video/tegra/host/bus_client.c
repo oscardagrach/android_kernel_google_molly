@@ -52,6 +52,7 @@
 #include "nvhost_channel.h"
 #include "nvhost_job.h"
 #include "nvhost_hwctx.h"
+#include "user_hwctx.h"
 #include "nvhost_sync.h"
 
 static int validate_reg(struct platform_device *ndev, u32 offset, int count)
@@ -194,7 +195,7 @@ static int nvhost_channelrelease(struct inode *inode, struct file *filp)
 	if (priv->job)
 		nvhost_job_put(priv->job);
 
-	nvhost_putchannel(priv->ch);
+	nvhost_putchannel(priv->ch, true);
 	kfree(priv);
 	return 0;
 }
@@ -210,24 +211,17 @@ static int __nvhost_channelopen(struct inode *inode,
 	if (inode) {
 		pdata = container_of(inode->i_cdev,
 				struct nvhost_device_data, cdev);
-		ch = nvhost_channel_map(pdata);
-		if (!ch || !ch->dev) {
-			pr_err("%s: failed to map channel\n", __func__);
-			return -ENOMEM;
-		}
-	} else {
-		if (!ch || !ch->dev) {
-			pr_err("%s: NULL channel request to get\n", __func__);
-			return -EINVAL;
-		}
-		nvhost_getchannel(ch);
+		ch = pdata->channel;
 	}
 
+	ch = nvhost_getchannel(ch, false, true);
+	if (!ch)
+		return -ENOMEM;
 	trace_nvhost_channel_open(dev_name(&ch->dev->dev));
 
 	priv = kzalloc(sizeof(*priv), GFP_KERNEL);
 	if (!priv) {
-		nvhost_putchannel(ch);
+		nvhost_putchannel(ch, true);
 		goto fail;
 	}
 	filp->private_data = priv;
@@ -248,10 +242,6 @@ static int __nvhost_channelopen(struct inode *inode,
 	priv->priority = NVHOST_PRIORITY_MEDIUM;
 	priv->clientid = atomic_add_return(1,
 			&nvhost_get_host(ch->dev)->clientid);
-	/* If we wrapped around to 0, increment again */
-	if (!priv->clientid)
-		priv->clientid = atomic_add_return(1,
-				&nvhost_get_host(ch->dev)->clientid);
 	pdata = dev_get_drvdata(ch->dev->dev.parent);
 	priv->timeout = pdata->nvhost_timeout_default;
 	priv->timeout_debug_dump = true;
@@ -412,7 +402,7 @@ static int nvhost_ioctl_channel_submit(struct nvhost_channel_userctx *ctx,
 			goto fail;
 
 		/* Validate */
-		if (sp.syncpt_id >= host->info.nb_pts) {
+		if (sp.syncpt_id > host->info.nb_pts) {
 			err = -EINVAL;
 			goto fail;
 		}
@@ -507,6 +497,124 @@ fail:
 	nvhost_job_put(job);
 	kfree(local_class_ids);
 	kfree(local_waitbases);
+	return err;
+}
+
+static int nvhost_ioctl_channel_set_ctxswitch(
+		struct nvhost_channel_userctx *ctx,
+		struct nvhost_set_ctxswitch_args *args)
+{
+	struct nvhost_cmdbuf cmdbuf_save;
+	struct nvhost_cmdbuf cmdbuf_restore;
+	struct nvhost_syncpt_incr save_incr, restore_incr;
+	u32 save_waitbase, restore_waitbase;
+	struct nvhost_reloc reloc;
+	struct nvhost_hwctx_handler *ctxhandler = NULL;
+	struct nvhost_hwctx *nhwctx = NULL;
+	struct user_hwctx *hwctx;
+	struct nvhost_device_data *pdata = platform_get_drvdata(ctx->ch->dev);
+	int err;
+
+	/* Only channels with context support */
+	if (!ctx->hwctx)
+		return -EFAULT;
+
+	/* We don't yet support other than one nvhost_syncpt_incrs per submit */
+	if (args->num_cmdbufs_save != 1
+			|| args->num_cmdbufs_restore != 1
+			|| args->num_save_incrs != 1
+			|| args->num_restore_incrs != 1
+			|| args->num_relocs != 1)
+		return -EINVAL;
+
+	err = copy_from_user(&cmdbuf_save,
+			(void *)(uintptr_t)args->cmdbuf_save,
+			sizeof(cmdbuf_save));
+	if (err)
+		goto fail;
+
+	err = copy_from_user(&cmdbuf_restore,
+			(void *)(uintptr_t)args->cmdbuf_restore,
+			sizeof(cmdbuf_restore));
+	if (err)
+		goto fail;
+
+	err = copy_from_user(&reloc, (void *)(uintptr_t)args->relocs,
+			sizeof(reloc));
+	if (err)
+		goto fail;
+
+	err = copy_from_user(&save_incr,
+			(void *)(uintptr_t)args->save_incrs,
+			sizeof(save_incr));
+	if (err)
+		goto fail;
+	err = copy_from_user(&save_waitbase,
+			(void *)(uintptr_t)args->save_waitbases,
+			sizeof(save_waitbase));
+
+	err = copy_from_user(&restore_incr,
+			(void *)(uintptr_t)args->restore_incrs,
+			sizeof(restore_incr));
+	if (err)
+		goto fail;
+	err = copy_from_user(&restore_waitbase,
+			(void *)(uintptr_t)args->restore_waitbases,
+			sizeof(restore_waitbase));
+
+	if (save_incr.syncpt_id != pdata->syncpts[0]
+			|| restore_incr.syncpt_id != pdata->syncpts[0]
+			|| save_waitbase != pdata->waitbases[0]
+			|| restore_waitbase != pdata->waitbases[0]) {
+		err = -EINVAL;
+		goto fail;
+	}
+	ctxhandler = user_ctxhandler_init(save_incr.syncpt_id,
+			save_waitbase, ctx->ch);
+	if (!ctxhandler) {
+		err = -ENOMEM;
+		goto fail;
+	}
+
+	nhwctx = ctxhandler->alloc(ctxhandler, ctx->ch);
+	if (!nhwctx) {
+		err = -ENOMEM;
+		goto fail_hwctx;
+	}
+	hwctx = to_user_hwctx(nhwctx);
+
+	trace_nvhost_ioctl_channel_set_ctxswitch(ctx->ch->dev->name, nhwctx,
+			cmdbuf_save.mem, cmdbuf_save.offset, cmdbuf_save.words,
+			cmdbuf_restore.mem, cmdbuf_restore.offset,
+			cmdbuf_restore.words,
+			pdata->syncpts[0], pdata->waitbases[0],
+			save_incr.syncpt_incrs, restore_incr.syncpt_incrs);
+
+	err = user_hwctx_set_restore(hwctx, cmdbuf_restore.mem,
+			cmdbuf_restore.offset, cmdbuf_restore.words);
+	if (err)
+		goto fail_set_restore;
+
+	err = user_hwctx_set_save(hwctx, cmdbuf_save.mem,
+			cmdbuf_save.offset, cmdbuf_save.words, &reloc);
+	if (err)
+		goto fail_set_save;
+
+	hwctx->hwctx.save_incrs = save_incr.syncpt_incrs;
+	hwctx->hwctx.restore_incrs = restore_incr.syncpt_incrs;
+
+	/* Free old context */
+	ctx->hwctx->h->put(ctx->hwctx);
+	ctx->hwctx = nhwctx;
+
+	return 0;
+
+fail_set_save:
+fail_set_restore:
+	ctxhandler->put(&hwctx->hwctx);
+fail_hwctx:
+	user_ctxhandler_free(ctxhandler);
+fail:
 	return err;
 }
 
@@ -625,7 +733,7 @@ static long nvhost_channelctl(struct file *filp,
 	unsigned int cmd, unsigned long arg)
 {
 	struct nvhost_channel_userctx *priv = filp->private_data;
-	struct device *dev;
+	struct device *dev = &priv->ch->dev->dev;
 	u8 buf[NVHOST_IOCTL_CHANNEL_MAX_ARG_SIZE];
 	int err = 0;
 
@@ -640,12 +748,6 @@ static long nvhost_channelctl(struct file *filp,
 			return -EFAULT;
 	}
 
-	if (!priv->ch->dev) {
-		pr_warn("Channel already unmapped\n");
-		return -EFAULT;
-	}
-
-	dev = &priv->ch->dev->dev;
 	switch (cmd) {
 	case NVHOST_IOCTL_CHANNEL_OPEN:
 	{
@@ -862,6 +964,9 @@ static long nvhost_channelctl(struct file *filp,
 		}
 		break;
 	}
+	case NVHOST_IOCTL_CHANNEL_SET_CTXSWITCH:
+		err = nvhost_ioctl_channel_set_ctxswitch(priv, (void *)buf);
+		break;
 	default:
 		nvhost_dbg_info("unrecognized ioctl cmd: 0x%x", cmd);
 		err = -ENOTTY;
@@ -950,7 +1055,7 @@ static const char *get_device_name_for_dev(struct platform_device *dev)
 
 static struct device *nvhost_client_device_create(
 	struct platform_device *pdev, struct cdev *cdev,
-	const char *cdev_name, dev_t devno,
+	const char *cdev_name, int devno,
 	const struct file_operations *ops)
 {
 	struct nvhost_master *host = nvhost_get_host(pdev);
@@ -991,21 +1096,18 @@ static struct device *nvhost_client_device_create(
 	return dev;
 }
 
-#define NVHOST_NUM_CDEV 4
 int nvhost_client_user_init(struct platform_device *dev)
 {
-	dev_t devno;
-	int err;
+	int err, devno;
 	struct nvhost_device_data *pdata = platform_get_drvdata(dev);
 
 	/* reserve 3 minor #s for <dev>, and ctrl-<dev> */
 
-	err = alloc_chrdev_region(&devno, 0, NVHOST_NUM_CDEV, IFACE_NAME);
+	err = alloc_chrdev_region(&devno, 0, 4, IFACE_NAME);
 	if (err < 0) {
 		dev_err(&dev->dev, "failed to allocate devno\n");
 		goto fail;
 	}
-	pdata->cdev_region = devno;
 
 	pdata->node = nvhost_client_device_create(dev, &pdata->cdev,
 				"", devno, &nvhost_channelops);
@@ -1047,22 +1149,28 @@ void nvhost_client_user_deinit(struct platform_device *dev)
 			       pdata->ctrl_cdev.dev);
 		cdev_del(&pdata->ctrl_cdev);
 	}
-
-	unregister_chrdev_region(pdata->cdev_region, NVHOST_NUM_CDEV);
 }
 
 int nvhost_client_device_init(struct platform_device *dev)
 {
 	int err;
 	struct nvhost_master *nvhost_master = nvhost_get_host(dev);
+	struct nvhost_channel *ch;
 	struct nvhost_device_data *pdata = platform_get_drvdata(dev);
 
-	pdata->channels = kzalloc(pdata->num_channels *
-					sizeof(struct nvhost_channel *),
-					GFP_KERNEL);
+	ch = nvhost_alloc_channel(dev);
+	if (ch == NULL)
+		return -ENODEV;
+
+	/* store the pointer to this device for channel */
+	ch->dev = dev;
 
 	/* Create debugfs directory for the device */
 	nvhost_device_debug_init(dev);
+
+	err = nvhost_channel_init(ch, nvhost_master);
+	if (err)
+		goto fail1;
 
 	err = nvhost_client_user_init(dev);
 	if (err)
@@ -1107,14 +1215,19 @@ fail:
 	/* Add clean-up */
 	dev_err(&dev->dev, "failed to init client device\n");
 	nvhost_client_user_deinit(dev);
+fail1:
 	nvhost_device_debug_deinit(dev);
+	nvhost_free_channel(ch);
 	return err;
 }
 EXPORT_SYMBOL(nvhost_client_device_init);
 
 int nvhost_client_device_release(struct platform_device *dev)
 {
+	struct nvhost_channel *ch;
 	struct nvhost_device_data *pdata = platform_get_drvdata(dev);
+
+	ch = pdata->channel;
 
 	/* Release nvhost module resources */
 	nvhost_module_deinit(dev);
@@ -1128,8 +1241,8 @@ int nvhost_client_device_release(struct platform_device *dev)
 	/* Remove debugFS */
 	nvhost_device_debug_deinit(dev);
 
-	/* Release all nvhost channel of dev*/
-	nvhost_channel_release(pdata);
+	/* Free nvhost channel */
+	nvhost_free_channel(ch);
 
 	return 0;
 }

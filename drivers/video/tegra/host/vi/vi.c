@@ -26,13 +26,14 @@
 #include <linux/of_device.h>
 #include <linux/of_platform.h>
 #include <linux/clk/tegra.h>
-#include <linux/tegra_pm_domains.h>
 
+#include <mach/pm_domains.h>
 #include <media/tegra_v4l2_camera.h>
 
 #include "dev.h"
 #include "bus_client.h"
 #include "nvhost_acm.h"
+#include "t114/t114.h"
 #include "t124/t124.h"
 #include "vi.h"
 #include "vi_irq.h"
@@ -40,7 +41,17 @@
 #define MAX_DEVID_LENGTH	16
 #define TEGRA_VI_NAME		"tegra_vi"
 
+/*
+ * MAX_BW = max(VI clock) * 2BPP, in KBps.
+ * Here default max VI clock is 420MHz.
+ */
+#define VI_DEFAULT_MAX_BW	840000
+
 static struct of_device_id tegra_vi_of_match[] = {
+#ifdef TEGRA_11X_OR_HIGHER_CONFIG
+	{ .compatible = "nvidia,tegra114-vi",
+		.data = (struct nvhost_device_data *)&t11_vi_info },
+#endif
 #ifdef TEGRA_12X_OR_HIGHER_CONFIG
 	{ .compatible = "nvidia,tegra124-vi",
 		.data = (struct nvhost_device_data *)&t124_vi_info },
@@ -51,6 +62,30 @@ static struct of_device_id tegra_vi_of_match[] = {
 static struct i2c_camera_ctrl *i2c_ctrl;
 
 #if defined(CONFIG_TEGRA_ISOMGR)
+static int vi_isomgr_register(struct vi *tegra_vi)
+{
+	int iso_client_id = TEGRA_ISO_CLIENT_VI_0;
+
+	dev_dbg(&tegra_vi->ndev->dev, "%s++\n", __func__);
+
+	if (tegra_vi->ndev->id)
+		iso_client_id = TEGRA_ISO_CLIENT_VI_1;
+
+	/* Register with max possible BW in VI usecases.*/
+	tegra_vi->isomgr_handle = tegra_isomgr_register(iso_client_id,
+					VI_DEFAULT_MAX_BW,
+					NULL,	/* tegra_isomgr_renegotiate */
+					NULL);	/* *priv */
+
+	if (!tegra_vi->isomgr_handle) {
+		dev_err(&tegra_vi->ndev->dev, "%s: unable to register isomgr\n",
+					__func__);
+		return -ENOMEM;
+	}
+
+	return 0;
+}
+
 static int vi_isomgr_unregister(struct vi *tegra_vi)
 {
 	tegra_isomgr_unregister(tegra_vi->isomgr_handle);
@@ -169,12 +204,18 @@ static int vi_probe(struct platform_device *dev)
 
 	tegra_vi->ndev = dev;
 
+#if defined(CONFIG_TEGRA_ISOMGR)
+	err = vi_isomgr_register(tegra_vi);
+	if (err)
+		goto vi_probe_fail;
+#endif
+
 	/* call vi_intr_init and stats_work */
 	INIT_WORK(&tegra_vi->stats_work, vi_stats_worker);
 
 	err = vi_intr_init(tegra_vi);
 	if (err)
-		goto vi_probe_fail;
+		goto intr_init_fail;
 
 	vi_create_debugfs(tegra_vi);
 
@@ -218,6 +259,11 @@ camera_i2c_unregister:
 	if (i2c_ctrl && i2c_ctrl->remove_devices)
 		i2c_ctrl->remove_devices(dev);
 	pdata->private_data = i2c_ctrl;
+intr_init_fail:
+#if defined(CONFIG_TEGRA_ISOMGR)
+	if (tegra_vi->isomgr_handle)
+		vi_isomgr_unregister(tegra_vi);
+#endif
 vi_probe_fail:
 	dev_err(&dev->dev, "%s: failed\n", __func__);
 	return err;

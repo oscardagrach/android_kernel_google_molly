@@ -84,7 +84,7 @@ struct tegra_dc_ext_flip_2_32 {
 
 #endif
 
-dev_t tegra_dc_ext_devno;
+int tegra_dc_ext_devno;
 struct class *tegra_dc_ext_class;
 static int head_count;
 
@@ -114,8 +114,6 @@ struct tegra_dc_ext_flip_data {
 	bool dirty_rect_valid;
 };
 
-static struct lock_class_key tegra_dc_ext_win_lock_key[DC_N_WINDOWS];
-
 static inline s64 tegra_timespec_to_ns(const struct tegra_timespec *ts)
 {
 	return ((s64) ts->tv_sec * NSEC_PER_SEC) + ts->tv_nsec;
@@ -123,7 +121,7 @@ static inline s64 tegra_timespec_to_ns(const struct tegra_timespec *ts)
 
 static inline int test_bit_u32(int nr, const u32 *addr)
 {
-	return 1UL & (addr[nr / 32] >> (nr & 31));
+	return 1UL & (addr[BIT_WORD(nr)] >> (nr & (BITS_PER_LONG-1)));
 }
 
 int tegra_dc_ext_get_num_outputs(void)
@@ -1612,7 +1610,6 @@ static int tegra_dc_ext_setup_windows(struct tegra_dc_ext *ext)
 
 		mutex_init(&win->lock);
 		mutex_init(&win->queue_lock);
-		lockdep_set_class(&win->lock, &tegra_dc_ext_win_lock_key[i]);
 		INIT_LIST_HEAD(&win->timestamp_queue);
 	}
 
@@ -1642,7 +1639,7 @@ struct tegra_dc_ext *tegra_dc_ext_register(struct platform_device *ndev,
 {
 	int ret;
 	struct tegra_dc_ext *ext;
-	dev_t devno;
+	int devno;
 
 	ext = kzalloc(sizeof(*ext), GFP_KERNEL);
 	if (!ext)

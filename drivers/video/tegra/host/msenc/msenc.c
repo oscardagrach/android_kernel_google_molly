@@ -29,7 +29,8 @@
 #include <linux/of_device.h>
 #include <linux/of_platform.h>
 #include <linux/dma-mapping.h>
-#include <linux/tegra_pm_domains.h>
+
+#include <mach/pm_domains.h>
 
 #include "dev.h"
 #include "msenc.h"
@@ -38,6 +39,7 @@
 #include "nvhost_acm.h"
 #include "nvhost_scale.h"
 #include "chip_support.h"
+#include "t114/t114.h"
 #include "t124/t124.h"
 
 #define MSENC_IDLE_TIMEOUT_DEFAULT	10000	/* 10 milliseconds */
@@ -414,6 +416,10 @@ int nvhost_msenc_finalize_poweron(struct platform_device *dev)
 }
 
 static struct of_device_id tegra_msenc_of_match[] = {
+#ifdef TEGRA_11X_OR_HIGHER_CONFIG
+	{ .compatible = "nvidia,tegra114-msenc",
+		.data = (struct nvhost_device_data *)&t11_msenc_info },
+#endif
 #ifdef TEGRA_12X_OR_HIGHER_CONFIG
 	{ .compatible = "nvidia,tegra124-msenc",
 		.data = (struct nvhost_device_data *)&t124_msenc_info },

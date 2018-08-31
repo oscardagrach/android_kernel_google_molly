@@ -29,7 +29,6 @@
 #include <linux/dma-mapping.h>
 #include <linux/tegra-powergate.h>
 #include <linux/tegra-soc.h>
-#include <linux/tegra_pm_domains.h>
 
 #include "dev.h"
 #include "class_ids.h"
@@ -47,6 +46,7 @@
 #include "t124/hardware_t124.h" /* for nvhost opcodes*/
 #include "t124/t124.h"
 
+#include <mach/pm_domains.h>
 
 #include "../../../../../arch/arm/mach-tegra/iomap.h"
 
@@ -599,9 +599,9 @@ int nvhost_vic03_prepare_poweroff(struct platform_device *dev)
 {
 	struct nvhost_device_data *pdata = nvhost_get_devdata(dev);
 	struct vic03 *v;
-	struct nvhost_channel *ch = pdata->channels[0];
+	struct nvhost_channel *ch = pdata->channel;
 
-	if (ch && ch->dev) {
+	if (ch) {
 		mutex_lock(&ch->submitlock);
 		ch->cur_ctx = NULL;
 		mutex_unlock(&ch->submitlock);

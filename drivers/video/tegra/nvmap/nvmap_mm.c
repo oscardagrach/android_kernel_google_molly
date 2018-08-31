@@ -39,15 +39,14 @@ void inner_flush_cache_all(void)
 
 void inner_clean_cache_all(void)
 {
-#if defined(CONFIG_ARM64) && \
-	defined(CONFIG_NVMAP_CACHE_MAINT_BY_SET_WAYS_ON_ONE_CPU)
-	__clean_dcache_all(NULL);
-#elif defined(CONFIG_ARM64)
-	on_each_cpu(__clean_dcache_all, NULL, 1);
-#elif defined(CONFIG_NVMAP_CACHE_MAINT_BY_SET_WAYS_ON_ONE_CPU)
+#if defined(CONFIG_ARM64)
+	inner_flush_cache_all();
+#else
+#ifdef CONFIG_NVMAP_CACHE_MAINT_BY_SET_WAYS_ON_ONE_CPU
 	v7_clean_kern_cache_all(NULL);
 #else
 	on_each_cpu(v7_clean_kern_cache_all, NULL, 1);
+#endif
 #endif
 }
 
@@ -73,26 +72,24 @@ void nvmap_flush_cache(struct page **pages, int numpages)
 		nvmap_stats_read(NS_CFLUSH_DONE));
 
 	for (i = 0; i < numpages; i++) {
-		struct page *page = nvmap_to_page(pages[i]);
 #ifdef CONFIG_ARM64 //__flush_dcache_page flushes inner and outer on ARM64
 		if (flush_inner)
-			__flush_dcache_page(page);
+			__flush_dcache_page(pages[i]);
 #else
 		if (flush_inner)
-			__flush_dcache_page(page_mapping(page), page);
-		base = page_to_phys(page);
+			__flush_dcache_page(page_mapping(pages[i]), pages[i]);
+		base = page_to_phys(pages[i]);
 		outer_flush_range(base, base + PAGE_SIZE);
 #endif
 	}
 }
 
 /*
- * Perform cache op on the list of passed handles.
- * This will optimze the op if it can.
+ * Flush the list of passed handles. This will optimze the flush if it can.
  * In the case that all the handles together are larger than the inner cache
  * maint threshold it is possible to just do an entire inner cache flush.
  */
-int nvmap_do_cache_maint_list(struct nvmap_handle **handles, int op, int nr)
+int nvmap_flush_cache_list(struct nvmap_handle **handles, int nr)
 {
 	int i, err = 0;
 	u64 total = 0;
@@ -103,13 +100,8 @@ int nvmap_do_cache_maint_list(struct nvmap_handle **handles, int op, int nr)
 	/* Full flush in the case the passed list is bigger than our
 	 * threshold. */
 	if (total >= cache_maint_inner_threshold) {
-		if (op == NVMAP_CACHE_OP_WB) {
-			inner_clean_cache_all();
-			outer_clean_all();
-		} else {
-			inner_flush_cache_all();
-			outer_flush_all();
-		}
+		inner_flush_cache_all();
+		outer_flush_all();
 		nvmap_stats_inc(NS_CFLUSH_RQ, total);
 		nvmap_stats_inc(NS_CFLUSH_DONE, cache_maint_inner_threshold);
 		trace_nvmap_cache_flush(total,
@@ -121,7 +113,7 @@ int nvmap_do_cache_maint_list(struct nvmap_handle **handles, int op, int nr)
 			err = __nvmap_do_cache_maint(handles[i]->owner,
 						     handles[i], 0,
 						     handles[i]->size,
-						     op);
+						     NVMAP_CACHE_OP_WB_INV);
 			if (err)
 				break;
 		}
@@ -129,42 +121,3 @@ int nvmap_do_cache_maint_list(struct nvmap_handle **handles, int op, int nr)
 
 	return err;
 }
-
-void nvmap_zap_handle(struct nvmap_handle *handle,
-		      u64 offset,
-		      u64 size)
-{
-	struct list_head *vmas;
-	struct nvmap_vma_list *vma_list;
-	struct vm_area_struct *vma;
-
-	if (!handle->heap_pgalloc)
-		return;
-
-	if (!size) {
-		offset = 0;
-		size = handle->size;
-	}
-
-	vmas = &handle->pgalloc.vmas;
-	mutex_lock(&handle->lock);
-	list_for_each_entry(vma_list, vmas, list) {
-		vma = vma_list->vma;
-		zap_page_range(vma, vma->vm_start + offset,
-				offset + size - vma->vm_start,
-				NULL);
-	}
-	mutex_unlock(&handle->lock);
-}
-
-void nvmap_zap_handles(struct nvmap_handle **handles,
-		       u64 *offsets,
-		       u64 *sizes,
-		       u32 nr)
-{
-	int i;
-
-	for (i = 0; i < nr; i++)
-		nvmap_zap_handle(handles[i], offsets[i], sizes[i]);
-}
-

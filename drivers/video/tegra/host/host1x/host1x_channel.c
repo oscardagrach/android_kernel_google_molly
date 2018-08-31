@@ -129,17 +129,6 @@ static void add_sync_waits(struct nvhost_channel *ch, int fd)
 	if (!fence)
 		return;
 
-	/* validate syncpt ids */
-	list_for_each(pos, &fence->pt_list_head) {
-		u32 id;
-		pt = container_of(pos, struct sync_pt, pt_list);
-		id = nvhost_sync_pt_id(pt);
-		if (!id || id >= nvhost_syncpt_nb_pts(sp)) {
-			sync_fence_put(fence);
-			return;
-		}
-	}
-
 	/*
 	 * Force serialization by inserting a host wait for the
 	 * previous job to finish before this one can commence.
@@ -303,10 +292,8 @@ static int host1x_channel_submit(struct nvhost_job *job)
 		return -ETIMEDOUT;
 
 	/* Turn on the client module and host1x */
-	for (i = 0; i < job->num_syncpts; ++i) {
+	for (i = 0; i < job->num_syncpts; ++i)
 		nvhost_module_busy(ch->dev);
-		nvhost_getchannel(ch);
-	}
 
 	/* before error checks, return current max */
 	prev_max = hwctx_sp->fence = nvhost_syncpt_read_max(sp, hwctx_sp->id);
@@ -315,7 +302,6 @@ static int host1x_channel_submit(struct nvhost_job *job)
 	err = mutex_lock_interruptible(&ch->submitlock);
 	if (err) {
 		nvhost_module_idle_mult(ch->dev, job->num_syncpts);
-		nvhost_putchannel_mult(ch, job->num_syncpts);
 		goto error;
 	}
 
@@ -323,7 +309,6 @@ static int host1x_channel_submit(struct nvhost_job *job)
 		completed_waiters[i] = nvhost_intr_alloc_waiter();
 		if (!completed_waiters[i]) {
 			nvhost_module_idle_mult(ch->dev, job->num_syncpts);
-			nvhost_putchannel_mult(ch, job->num_syncpts);
 			mutex_unlock(&ch->submitlock);
 			err = -ENOMEM;
 			goto error;
@@ -338,9 +323,8 @@ static int host1x_channel_submit(struct nvhost_job *job)
 	/* begin a CDMA submit */
 	err = nvhost_cdma_begin(&ch->cdma, job);
 	if (err) {
-		nvhost_module_idle_mult(ch->dev, job->num_syncpts);
-		nvhost_putchannel_mult(ch, job->num_syncpts);
 		mutex_unlock(&ch->submitlock);
+		nvhost_module_idle_mult(ch->dev, job->num_syncpts);
 		goto error;
 	}
 
@@ -422,11 +406,6 @@ static int host1x_save_context(struct nvhost_channel *ch)
 	wakeup_waiter = nvhost_intr_alloc_waiter();
 	if (!wakeup_waiter) {
 		err = -ENOMEM;
-		goto done;
-	}
-
-	if (!ch || !ch->dev) {
-		err = -EINVAL;
 		goto done;
 	}
 

@@ -56,7 +56,6 @@ struct nvhost_syncpt {
 	struct nvhost_syncpt_attr invalid_max_attr;
 	struct nvhost_syncpt_attr invalid_name_attr;
 	struct nvhost_syncpt_attr invalid_syncpt_type_attr;
-	struct nvhost_syncpt_attr invalid_assigned_attr;
 #endif
 };
 

@@ -31,13 +31,14 @@
 #include <linux/of_device.h>
 #include <linux/of_platform.h>
 #include <linux/tegra-soc.h>
-#include <linux/tegra_pm_domains.h>
 
 #include "dev.h"
 #include <trace/events/nvhost.h>
 
 #include <linux/nvhost.h>
 #include <linux/nvhost_ioctl.h>
+
+#include <mach/pm_domains.h>
 
 #include "debug.h"
 #include "bus_client.h"
@@ -51,6 +52,7 @@
 
 #include "nvhost_scale.h"
 #include "chip_support.h"
+#include "t114/t114.h"
 #include "t124/t124.h"
 
 #define DRIVER_NAME		"host1x"
@@ -234,31 +236,6 @@ out:
 #endif
 }
 
-static int nvhost_ioctl_ctrl_sync_fence_set_name(
-	struct nvhost_ctrl_userctx *ctx,
-	struct nvhost_ctrl_sync_fence_name_args *args)
-{
-#ifdef CONFIG_TEGRA_GRHOST_SYNC
-	int err;
-	char name[32];
-	const char __user *args_name =
-		(const char __user *)(uintptr_t)args->name;
-
-	if (args_name) {
-		if (strncpy_from_user(name, args_name, sizeof(name)) < 0)
-			return -EFAULT;
-		name[sizeof(name) - 1] = '\0';
-	} else {
-		name[0] = '\0';
-	}
-
-	err = nvhost_sync_fence_set_name(args->fence_fd, name);
-	return err;
-#else
-	return -EINVAL;
-#endif
-}
-
 static int nvhost_ioctl_ctrl_module_mutex(struct nvhost_ctrl_userctx *ctx,
 	struct nvhost_ctrl_module_mutex_args *args)
 {
@@ -426,9 +403,6 @@ static long nvhost_ctrlctl(struct file *filp,
 	case NVHOST_IOCTL_CTRL_SYNC_FENCE_CREATE:
 		err = nvhost_ioctl_ctrl_sync_fence_create(priv, (void *)buf);
 		break;
-	case NVHOST_IOCTL_CTRL_SYNC_FENCE_SET_NAME:
-		err = nvhost_ioctl_ctrl_sync_fence_set_name(priv, (void *)buf);
-		break;
 	case NVHOST_IOCTL_CTRL_MODULE_MUTEX:
 		err = nvhost_ioctl_ctrl_module_mutex(priv, (void *)buf);
 		break;
@@ -534,7 +508,6 @@ static inline int nvhost_set_sysfs_capability_node(
 				struct nvhost_capability_node *node,
 				int (*func)(struct nvhost_syncpt *sp))
 {
-	sysfs_attr_init(&node->attr.attr);
 	node->attr.attr.name = name;
 	node->attr.attr.mode = S_IRUGO;
 	node->attr.show = nvhost_syncpt_capability_show;
@@ -546,8 +519,7 @@ static inline int nvhost_set_sysfs_capability_node(
 
 static int nvhost_user_init(struct nvhost_master *host)
 {
-	dev_t devno;
-	int err;
+	int err, devno;
 
 	host->nvhost_class = class_create(THIS_MODULE, IFACE_NAME);
 	if (IS_ERR(host->nvhost_class)) {
@@ -619,10 +591,16 @@ fail:
 	return err;
 }
 
-void nvhost_set_chanops(struct nvhost_channel *ch)
+struct nvhost_channel *nvhost_alloc_channel(struct platform_device *dev)
 {
-	host_device_op().set_nvhost_chanops(ch);
+	return host_device_op().alloc_nvhost_channel(dev);
 }
+
+void nvhost_free_channel(struct nvhost_channel *ch)
+{
+	host_device_op().free_nvhost_channel(ch);
+}
+
 static void nvhost_free_resources(struct nvhost_master *host)
 {
 	kfree(host->intr.syncpt);
@@ -650,12 +628,35 @@ static int nvhost_alloc_resources(struct nvhost_master *host)
 }
 
 static struct of_device_id tegra_host1x_of_match[] = {
+#ifdef TEGRA_11X_OR_HIGHER_CONFIG
+	{ .compatible = "nvidia,tegra114-host1x",
+		.data = (struct nvhost_device_data *)&t11_host1x_info },
+#endif
 #ifdef TEGRA_12X_OR_HIGHER_CONFIG
 	{ .compatible = "nvidia,tegra124-host1x",
 		.data = (struct nvhost_device_data *)&t124_host1x_info },
 #endif
 	{ },
 };
+
+void nvhost_host1x_update_clk(struct platform_device *pdev)
+{
+	struct nvhost_device_data *pdata = NULL;
+	struct nvhost_device_profile *profile;
+
+	/* There are only two chips which need this workaround, so hardcode */
+#ifdef TEGRA_11X_OR_HIGHER_CONFIG
+	if (tegra_get_chipid() == TEGRA_CHIPID_TEGRA11)
+		pdata = &t11_gr3d_info;
+#endif
+	if (!pdata)
+		return;
+
+	profile = pdata->power_profile;
+
+	if (profile && profile->actmon)
+		actmon_op().update_sample_period(profile->actmon);
+}
 
 int nvhost_host1x_finalize_poweron(struct platform_device *dev)
 {
@@ -757,10 +758,6 @@ static int nvhost_probe(struct platform_device *dev)
 	if (err)
 		goto fail;
 
-	err = nvhost_alloc_channels(host);
-	if (err)
-		goto fail;
-
 #ifdef CONFIG_PM_GENERIC_DOMAINS
 	pdata->pd.name = "tegra-host1x";
 	err = nvhost_module_add_domain(&pdata->pd, dev);
@@ -804,8 +801,6 @@ static int __exit nvhost_remove(struct platform_device *dev)
 #else
 	nvhost_module_disable_clk(&dev->dev);
 #endif
-	nvhost_channel_list_free(host);
-
 	return 0;
 }
 

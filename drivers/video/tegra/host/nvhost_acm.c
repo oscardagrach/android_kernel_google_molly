@@ -34,9 +34,9 @@
 #include <linux/tegra-soc.h>
 #include <trace/events/nvhost.h>
 #include <linux/platform_data/tegra_edp.h>
-#include <linux/tegra_pm_domains.h>
 
 #include <mach/mc.h>
+#include <mach/pm_domains.h>
 
 #include "nvhost_acm.h"
 #include "nvhost_channel.h"
@@ -280,6 +280,9 @@ static int nvhost_module_update_rate(struct platform_device *dev, int index)
 			pdata->clocks[index].name, rate);
 
 	ret = clk_set_rate(pdata->clk[index], rate);
+
+	if (pdata->update_clk)
+		pdata->update_clk(dev);
 
 	return ret;
 
@@ -765,9 +768,8 @@ int nvhost_module_disable_clk(struct device *dev)
 	for (index = 0; index < pdata->num_clks; index++)
 		clk_disable_unprepare(pdata->clk[index]);
 
-	for (index = 0; index < pdata->num_channels; index++)
-		if (pdata->channels[index])
-			nvhost_channel_suspend(pdata->channels[index]);
+	if (pdata->channel)
+		nvhost_channel_suspend(pdata->channel);
 
 	/* disable parent's clock if required */
 	if (dev->parent && dev->parent != &platform_bus)
