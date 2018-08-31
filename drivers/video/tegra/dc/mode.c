@@ -31,7 +31,6 @@
 
 #include "dc_reg.h"
 #include "dc_priv.h"
-#include "hdmi.h"
 
 /* return non-zero if constraint is violated */
 static int calc_h_ref_to_sync(const struct tegra_dc_mode *mode, int *href)
@@ -200,17 +199,6 @@ static bool check_mode_timings(struct tegra_dc *dc, struct tegra_dc_mode *mode)
 			/* HDMI controller requires h_ref=1, v_ref=1 */
 		mode->h_ref_to_sync = 1;
 		mode->v_ref_to_sync = 1;
-
-		/* Use limited quant range any time we are driving a non-VGA CEA
-		 * video mode.  If we are connected via DVI, then we must be
-		 * using a VESA mode and should always send full range instead
-		 * of limited.
-		 */
-		if (tegra_hdmi_connector_is_dvi(dc) ||
-		   (tegra_dc_find_cea_vic_from_fb_vmode(fbmode) <= 1))
-			mode.avi_q = TEGRA_DC_MODE_AVI_Q_FULL;
-		else
-			mode.avi_q = TEGRA_DC_MODE_AVI_Q_LIMITED;
 	} else {
 		calc_ref_to_sync(mode);
 	}
@@ -582,7 +570,6 @@ int tegra_dc_set_fb_mode(struct tegra_dc *dc,
 	mode.h_front_porch = fbmode->right_margin;
 	mode.v_front_porch = fbmode->lower_margin;
 	mode.stereo_mode = stereo_mode;
-    mode.avi_q = TEGRA_DC_MODE_AVI_Q_DEFAULT;
 	mode.vmode = fbmode->vmode;
 	if (fbmode->flag & FB_FLAG_RATIO_16_9)
 		mode.avi_m = TEGRA_DC_MODE_AVI_M_16_9;
