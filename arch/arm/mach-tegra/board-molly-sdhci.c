@@ -25,13 +25,13 @@
 #include <linux/err.h>
 #include <linux/regulator/consumer.h>
 #include <linux/mmc/host.h>
-#include <linux/wl12xx.h>
+#include <linux/wl12xx.h> /* needed? */
+#include <linux/platform_data/mmc-sdhci-tegra.h>
+#include <linux/tegra-fuse.h>
 
 #include <asm/mach-types.h>
 #include <mach/irqs.h>
-#include <mach/iomap.h>
-#include <mach/sdhci.h>
-#include<mach/gpio-tegra.h>
+#include <mach/gpio-tegra.h>
 #include <mach/io_dpd.h>
 
 #include "tegra-board-id.h"
@@ -39,7 +39,7 @@
 #include "board.h"
 #include "board-molly.h"
 #include "dvfs.h"
-#include "fuse.h"
+#include "iomap.h"
 
 #define MOLLY_WLAN_PWR	TEGRA_GPIO_PCC5
 #define MOLLY_WLAN_RST	TEGRA_GPIO_PW5
