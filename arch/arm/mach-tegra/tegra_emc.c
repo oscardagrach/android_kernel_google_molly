@@ -28,15 +28,15 @@
 
 #include <mach/tegra_emc.h>
 
-#include "tegra12_emc.h"
-
 u8 tegra_emc_iso_share = 100;
 static unsigned long emc_iso_allocation;
 static unsigned long last_iso_bw;
 
 static struct emc_iso_usage emc_usage_table[TEGRA_EMC_ISO_USE_CASES_MAX_NUM];
 
-
+#ifdef CONFIG_ARCH_TEGRA_12x_SOC
+#include "tegra12_emc.h"
+#include <linux/tegra-soc.h>
 u32 tegra_get_dvfs_clk_change_latency_nsec(unsigned long emc_freq_khz)
 {
 	switch (tegra_get_chipid()) {
@@ -47,6 +47,7 @@ u32 tegra_get_dvfs_clk_change_latency_nsec(unsigned long emc_freq_khz)
 		return 0;
 	}
 }
+#endif
 
 void __init tegra_emc_iso_usage_table_init(struct emc_iso_usage *table,
 					   int size)
