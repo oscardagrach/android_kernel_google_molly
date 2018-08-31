@@ -2251,15 +2251,6 @@ static struct tegra11_emc_pdata molly_evt_h5tc4g63afr_pba_T40X_pdata = {
 
 int __init molly_emc_init(void)
 {
-#define T40X_SKU 0x3
-#define T40T_SKU 0x4
-#define T40S_SKU 0x5
-	WARN(tegra_sku_id != T40X_SKU, "expecting T40X");
-	pr_info("tegra_sku_id == 0x%x\n", tegra_sku_id);
-
-	WARN((molly_hw_rev == MOLLY_REV_PROTO1) ||
-	     (molly_hw_rev == MOLLY_REV_PROTO2),
-	     "proto boards no longer supported, using evt memory settings");
 	tegra_emc_device.dev.platform_data = &molly_evt_h5tc4g63afr_pba_T40X_pdata;
 
 	platform_device_register(&tegra_emc_device);
