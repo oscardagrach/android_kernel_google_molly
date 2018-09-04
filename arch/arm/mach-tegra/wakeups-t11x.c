@@ -103,17 +103,17 @@ static int tegra_wake_event_irq[] = {
 	-EAGAIN, /* ULPI DATA4 */		/* wake0 */
 	-EAGAIN,				/* wake1 */
 	-EAGAIN,				/* wake2 */
-	-EINVAL, /* SDMMC3 DAT1 */		/* wake3 */
-	-EINVAL, /* HDMI INT */			/* wake4 */
+	INT_SDMMC3, /* SDMMC3 DAT1 */		/* wake3 */
+	INT_HDMI, /* HDMI INT */			/* wake4 */
 	-EAGAIN,				/* wake5 */
 	-EAGAIN,				/* wake6 */
 	-EAGAIN,				/* wake7 */
 	-EAGAIN,				/* wake8 */
-	-EAGAIN, /* UART3 RXD */		/* wake9 */
-	-EINVAL, /* SDMMC4 DAT1 */		/* wake10 */
+	INT_UARTC, /* UART3 RXD */		/* wake9 */
+	INT_SDMMC4, /* SDMMC4 DAT1 */		/* wake10 */
 	-EAGAIN,				/* wake11 */
 	-EAGAIN,				/* wake12 */
-	-EINVAL, /* SDMMC1 DAT1 */		/* wake13 */
+	INT_SDMMC1, /* SDMMC1 DAT1 */		/* wake13 */
 	-EAGAIN,				/* wake14 */
 	INT_EDP,				/* wake15 */
 	INT_RTC, /* Tegra RTC */		/* wake16 */
@@ -130,7 +130,7 @@ static int tegra_wake_event_irq[] = {
 	-EAGAIN,				/* wake27 */
 	-EAGAIN,				/* wake28 */
 	-EAGAIN,				/* wake29 */
-	-EINVAL, /* I2S0 SDATA OUT */		/* wake30 */
+	INT_AUDIO_CLUSTER, /* I2S0 SDATA OUT */		/* wake30 */
 	-EINVAL,				/* wake31 */
 	-EINVAL, /* ULPI DATA3 */		/* wake32 */
 	-EAGAIN,				/* wake33 */
@@ -144,20 +144,20 @@ static int tegra_wake_event_irq[] = {
 	-EINVAL, /* utmip2 line wakeup event - USB3 */	/* wake41 */
 	INT_USB2, /* uhsic line wakeup event - USB2 */	/* wake42 */
 	INT_USB3, /* uhsic2 line wakeup event - USB3 */	/* wake43 */
-	-EINVAL, /* I2C1 DAT */			/* wake44 */
+	INT_I2C, /* I2C1 DAT */			/* wake44 */
 	-EAGAIN,				/* wake45 */
-	-EINVAL, /* PWR I2C DAT */		/* wake46 */
-	-EAGAIN, /* I2C2 DAT */			/* wake47 */
-	-EINVAL, /* I2C3 DAT */			/* wake48 */
+	INT_I2C5, /* PWR I2C DAT */		/* wake46 */
+	INT_I2C2, /* I2C2 DAT */			/* wake47 */
+	INT_I2C3, /* I2C3 DAT */			/* wake48 */
 	-EAGAIN,				/* wake49 */
 	-EAGAIN,				/* wake50 */
-	-EAGAIN, /* KBC11 */			/* wake51 */
-	-EAGAIN, /* HDMI CEC */			/* wake52 */
-	-EINVAL, /* I2C3 CLK */			/* wake53 */
+	INT_KBC, /* KBC11 */			/* wake51 */
+	INT_HDMI, /* HDMI CEC */			/* wake52 */
+	INT_I2C3, /* I2C3 CLK */			/* wake53 */
 	-EAGAIN,				/* wake54 */
-	-EINVAL, /* UART3 CTS */		/* wake55 */
+	INT_UARTC, /* UART3 CTS */		/* wake55 */
 	-EAGAIN, /* SDMMC3 CD */		/* wake56 */
-	-EINVAL, /* spdif_in */			/* wake57 */
+	INT_USB, /* spdif_in */			/* wake57 */
 	INT_XUSB_PADCTL, /* XUSB superspeed wake */	/* wake58 */
 };
 
