@@ -1504,8 +1504,8 @@ CONFIG_WLAN=y
 # CONFIG_RTLWIFI is not set
 # CONFIG_WL_TI is not set
 # CONFIG_ZD1211RW is not set
-# CONFIG_MWIFIEX is not set
-CONFIG_MWLAN=y
+CONFIG_MWIFIEX=y
+# CONFIG_MWLAN is not set
 
 #
 # Enable WiMAX (Networking options) to see the WiMAX drivers
