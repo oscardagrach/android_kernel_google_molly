@@ -125,7 +125,7 @@ MODULE_PARM_DESC(device_major_number,
 /**
  * The softint interrupt line used by the Secure World.
  */
-static int soft_interrupt = -1;
+static int soft_interrupt = 191;
 
 module_param(soft_interrupt, int, 0000);
 MODULE_PARM_DESC(soft_interrupt,

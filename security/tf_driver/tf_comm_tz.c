@@ -143,6 +143,7 @@ static inline int tf_smc_init(u32 shared_page_descriptor)
 /*
  * Calls the reset irq SMC.
  */
+/*
 static inline void tf_smc_reset_irq(void)
 {
 	struct tf_generic_smc generic_smc;
@@ -155,7 +156,7 @@ static inline void tf_smc_reset_irq(void)
 
 	tf_smc_generic_call(&generic_smc);
 }
-
+*/
 
 /*
  * Calls the WAKE_UP SMC.
@@ -718,7 +719,7 @@ static irqreturn_t tf_soft_int_handler(int irq, void *dev_id)
 		/* interrupt not issued by the Trusted Foundations Software */
 		return IRQ_NONE;
 
-	tf_smc_reset_irq();
+	//tf_smc_reset_irq();
 
 	/* signal N_SM_EVENT */
 	wake_up(&comm->wait_queue);
