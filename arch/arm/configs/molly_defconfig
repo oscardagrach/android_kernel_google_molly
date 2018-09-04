@@ -3075,7 +3075,7 @@ CONFIG_ARCH_HAS_PASR=y
 #
 # CONFIG_TEGRA_MC_DOMAINS is not set
 CONFIG_CLKDEV_LOOKUP=y
-# CONFIG_CLK_PALMAS is not set
+CONFIG_CLK_PALMAS=y
 
 #
 # Hardware Spinlock drivers
