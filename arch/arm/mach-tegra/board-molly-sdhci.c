@@ -70,7 +70,7 @@ static struct wifi_platform_data molly_wifi_control = {
 static struct resource wifi_resource[] = {
 	[0] = {
 		.name	= "mrvl_wlan_irq",
-		.flags	= IORESOURCE_IRQ | IORESOURCE_IRQ_LOWLEVEL,
+		.flags	= IORESOURCE_IRQ | IORESOURCE_IRQ_LOWLEVEL | IORESOURCE_IRQ_SHAREABLE,
 	},
 };
 
@@ -158,7 +158,6 @@ struct tegra_sdhci_platform_data tegra_sdhci_platform_data0 = {
 		.ocr_mask = MMC_OCR_1V8_MASK,
 	},
 #ifndef CONFIG_MMC_EMBEDDED_SDIO
-	.pm_flags = MMC_PM_KEEP_POWER,
 #endif
 	.cd_gpio = -1,
 	.wp_gpio = -1,
@@ -228,14 +227,11 @@ static int molly_wifi_set_carddetect(int val)
 
 static int molly_wifi_power(int on)
 {
-	int ret = 0;
-
 	gpio_set_value(MOLLY_WLAN_PWR, on);
-	mdelay(100);
 	gpio_set_value(MOLLY_WLAN_RST, on);
-	mdelay(200);
+	mdelay(100);
 
-	return ret;
+	return 0;
 }
 
 static int molly_wifi_reset(int on)
@@ -292,7 +288,7 @@ static int __init molly_wifi_prepower(void)
 	return 0;
 }
 
-subsys_initcall_sync(molly_wifi_prepower);
+fs_initcall(molly_wifi_prepower);
 #endif
 
 int __init molly_sdhci_init(void)
@@ -326,6 +322,8 @@ int __init molly_sdhci_init(void)
 		tegra_sdhci_platform_data0.boot_vcore_mv = boot_vcore_mv;
         tegra_sdhci_platform_data3.boot_vcore_mv = boot_vcore_mv;
 	}
+
+    tegra_sdhci_platform_data0.disable_clock_gate = 1;
 
 	speedo = tegra_fuse_readl(FUSE_CORE_SPEEDO_0);
 	tegra_sdhci_platform_data3.cpu_speedo = speedo;
