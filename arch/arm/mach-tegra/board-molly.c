@@ -482,8 +482,6 @@ static void __init tegra_molly_early_init(void)
 
 static void __init tegra_molly_late_init(void)
 {
-    //platform_device_register(&tegra114_pinctrl_device);
-    molly_pinmux_init();
 	molly_i2c_init();
 	molly_spi_init();
 	molly_radio_init();

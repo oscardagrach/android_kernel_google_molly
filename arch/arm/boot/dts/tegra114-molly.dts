@@ -1,10 +1,9 @@
 /dts-v1/;
 
 /include/ "tegra114.dtsi"
-/*
-* #include <tegra114-platforms/tegra114-molly-gpio-defaults.dtsi>
-* #include <tegra114-platforms/tegra114-molly-pinmux.dtsi>
-*/
+
+#include <tegra114-platforms/tegra114-molly-gpio-defaults.dtsi>
+#include <tegra114-platforms/tegra114-molly-pinmux.dtsi>
 #include <tegra114-platforms/tegra114-molly-powermon.dtsi>
 / {
 	model = "Google Tegra114 Molly board";
