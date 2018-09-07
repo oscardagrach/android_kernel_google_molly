@@ -239,6 +239,7 @@ out:
 
 int nvmap_ioctl_getid(struct file *filp, void __user *arg)
 {
+	struct nvmap_client *client = filp->private_data;
 	struct nvmap_create_handle op;
 	struct nvmap_handle *h = NULL;
 
@@ -255,6 +256,9 @@ int nvmap_ioctl_getid(struct file *filp, void __user *arg)
 		return -EPERM;
 
 	op.id = marshal_id(h);
+	if (client == h->owner)
+		h->global = true;
+
 	nvmap_handle_put(h);
 
 	return copy_to_user(arg, &op, sizeof(op)) ? -EFAULT : 0;
@@ -363,11 +367,11 @@ int nvmap_ioctl_alloc_kind(struct file *filp, void __user *arg)
 				  op.flags);
 }
 
-int nvmap_create_fd(struct nvmap_client *client, struct nvmap_handle *h)
+int nvmap_create_fd(struct nvmap_handle *h)
 {
 	int fd;
 
-	fd = __nvmap_dmabuf_fd(client, h->dmabuf, O_CLOEXEC);
+	fd = __nvmap_dmabuf_fd(h->dmabuf, O_CLOEXEC);
 	BUG_ON(fd == 0);
 	if (fd < 0) {
 		pr_err("Out of file descriptors");
@@ -410,7 +414,7 @@ int nvmap_ioctl_create(struct file *filp, unsigned int cmd, void __user *arg)
 	if (IS_ERR(ref))
 		return PTR_ERR(ref);
 
-	fd = nvmap_create_fd(client, ref->handle);
+	fd = nvmap_create_fd(ref->handle);
 	if (fd < 0)
 		err = fd;
 
@@ -445,7 +449,7 @@ int nvmap_map_into_caller_ptr(struct file *filp, void __user *arg, bool is32)
 		op.handle = op32.handle;
 		op.offset = op32.offset;
 		op.length = op32.length;
-		op.flags = op32.flags;
+		op.flags = op32.length;
 		op.addr = op32.addr;
 	} else
 #endif
@@ -680,7 +684,8 @@ static int __nvmap_cache_maint(struct nvmap_client *client,
 		(vma->vm_pgoff << PAGE_SHIFT);
 	end = start + op->len;
 
-	err = __nvmap_do_cache_maint(client, vpriv->handle, start, end, op->op);
+	err = __nvmap_do_cache_maint(client, vpriv->handle, start, end, op->op,
+				     CACHE_MAINT_ALLOW_DEFERRED);
 out:
 	up_read(&current->mm->mmap_sem);
 	return err;
@@ -759,7 +764,7 @@ static void heap_page_cache_maint(
 		if (!h->vaddr)
 			vaddr = vm_map_ram(h->pgalloc.pages,
 					h->size >> PAGE_SHIFT, -1, prot);
-		if (vaddr && atomic_long_cmpxchg(&h->vaddr, 0, (long)vaddr))
+		if (vaddr && atomic_long_cmpxchg(&h->vaddr, NULL, vaddr))
 			vm_unmap_ram(vaddr, h->size >> PAGE_SHIFT);
 		if (h->vaddr) {
 			/* Fast inner cache maintenance using single mapping */
@@ -783,6 +788,7 @@ static void heap_page_cache_maint(
 			BUG_ON(!kaddr);
 			ioremap_page_range(kaddr, kaddr + PAGE_SIZE,
 				paddr, prot);
+			nvmap_flush_tlb_kernel_page(kaddr);
 			inner_cache_maint(op, vaddr, size);
 			unmap_kernel_range(kaddr, PAGE_SIZE);
 		}
@@ -944,6 +950,8 @@ static int do_cache_maint(struct cache_maint_op *cache_work)
 
 		ioremap_page_range(kaddr, kaddr + PAGE_SIZE,
 			loop, prot);
+		nvmap_flush_tlb_kernel_page(kaddr);
+
 		inner_cache_maint(op, base, next - loop);
 		loop = next;
 		unmap_kernel_range(kaddr, PAGE_SIZE);
@@ -961,7 +969,7 @@ out:
 int __nvmap_do_cache_maint(struct nvmap_client *client,
 			struct nvmap_handle *h,
 			unsigned long start, unsigned long end,
-			unsigned int op)
+			unsigned int op, unsigned int allow_deferred)
 {
 	int err;
 	struct cache_maint_op cache_op;
@@ -1069,7 +1077,8 @@ static ssize_t rw_handle(struct nvmap_client *client, struct nvmap_handle *h,
 		}
 		if (is_read)
 			__nvmap_do_cache_maint(client, h, h_offs,
-				h_offs + elem_size, NVMAP_CACHE_OP_INV);
+				h_offs + elem_size, NVMAP_CACHE_OP_INV,
+				CACHE_MAINT_IMMEDIATE);
 
 		ret = rw_handle_page(h, is_read, h_offs, sys_addr,
 				     elem_size, (unsigned long)addr);
@@ -1079,7 +1088,8 @@ static ssize_t rw_handle(struct nvmap_client *client, struct nvmap_handle *h,
 
 		if (!is_read)
 			__nvmap_do_cache_maint(client, h, h_offs,
-				h_offs + elem_size, NVMAP_CACHE_OP_WB_INV);
+				h_offs + elem_size, NVMAP_CACHE_OP_WB_INV,
+				CACHE_MAINT_IMMEDIATE);
 
 		copied += elem_size;
 		sys_addr += sys_stride;

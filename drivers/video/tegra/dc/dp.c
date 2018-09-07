@@ -63,28 +63,6 @@ static inline void tegra_dpaux_writel(struct tegra_dc_dp_data *dp,
 	writel(val, dp->aux_base + reg * 4);
 }
 
-static inline void tegra_dpaux_clk_enable(struct tegra_dc_dp_data *dp)
-{
-	clk_prepare_enable(dp->dpaux_clk);
-}
-
-static inline void tegra_dpaux_clk_disable(struct tegra_dc_dp_data *dp)
-{
-	clk_disable_unprepare(dp->dpaux_clk);
-}
-
-static inline void tegra_dp_clk_enable(struct tegra_dc_dp_data *dp)
-{
-	if (!tegra_is_clk_enabled(dp->parent_clk))
-		clk_prepare_enable(dp->parent_clk);
-}
-
-static inline void tegra_dp_clk_disable(struct tegra_dc_dp_data *dp)
-{
-	if (tegra_is_clk_enabled(dp->parent_clk))
-		clk_disable_unprepare(dp->parent_clk);
-}
-
 static inline void tegra_dpaux_write_field(struct tegra_dc_dp_data *dp,
 					u32 reg, u32 mask, u32 val)
 {
@@ -681,7 +659,8 @@ static int dbg_dp_show(struct seq_file *s, void *unused)
 		#a, a, tegra_dpaux_readl(dp, a))
 
 	tegra_dc_io_start(dp->dc);
-	tegra_dpaux_clk_enable(dp);
+	clk_prepare_enable(dp->parent_clk);
+	clk_prepare_enable(dp->clk);
 
 	DUMP_REG(DPAUX_INTR_EN_AUX);
 	DUMP_REG(DPAUX_INTR_AUX);
@@ -694,7 +673,8 @@ static int dbg_dp_show(struct seq_file *s, void *unused)
 	DUMP_REG(DPAUX_HYBRID_PADCTL);
 	DUMP_REG(DPAUX_HYBRID_SPARE);
 
-	tegra_dpaux_clk_disable(dp);
+	clk_disable_unprepare(dp->clk);
+	clk_disable_unprepare(dp->parent_clk);
 	tegra_dc_io_end(dp->dc);
 
 	return 0;
@@ -1240,9 +1220,6 @@ static int tegra_dp_lt(struct tegra_dc_dp_data *dp)
 	struct tegra_dc_dp_link_config *cfg = &dp->link_cfg;
 	struct tegra_dp_out *dp_pdata = dp->pdata;
 
-	tegra_dp_clk_enable(dp);
-	tegra_sor_config_dp_clk(dp->sor);
-
 	if (cfg->support_fast_lt && cfg->lt_data_valid) {
 		ret = tegra_dp_fast_lt(dp, cfg);
 		if (!ret)
@@ -1365,13 +1342,13 @@ static irqreturn_t tegra_dp_irq(int irq, void *ptr)
 
 static int tegra_dc_dp_init(struct tegra_dc *dc)
 {
-	struct tegra_dc_dp_data *dp;
-	struct resource *res;
-	struct resource *base_res;
-	void __iomem *base;
-	struct clk	 *clk;
-	struct clk	 *parent_clk;
-	int err;
+	struct tegra_dc_dp_data	*dp;
+	struct resource		*res;
+	struct resource		*base_res;
+	void __iomem		*base;
+	struct clk		*clk;
+	struct clk		*parent_clk;
+	int			 err;
 	u32 irq;
 
 
@@ -1437,7 +1414,7 @@ static int tegra_dc_dp_init(struct tegra_dc *dc)
 	dp->dc = dc;
 	dp->aux_base = base;
 	dp->aux_base_res = base_res;
-	dp->dpaux_clk = clk;
+	dp->clk = clk;
 	dp->parent_clk = parent_clk;
 	dp->mode = &dc->mode;
 	dp->sor = tegra_dc_sor_init(dc, &dp->link_cfg);
@@ -2027,21 +2004,16 @@ fail:
 	return err;
 }
 
-static inline void tegra_dp_reset(struct tegra_dc_dp_data *dp)
-{
-	tegra_periph_reset_assert(dp->dpaux_clk);
-	mdelay(2);
-	tegra_periph_reset_deassert(dp->dpaux_clk);
-	mdelay(1);
-}
-
 static void tegra_dc_dp_enable(struct tegra_dc *dc)
 {
 	struct tegra_dc_dp_data *dp = tegra_dc_get_outdata(dc);
 	int ret;
 
-	tegra_dp_reset(dp);
-	tegra_dpaux_clk_enable(dp);
+	if (!tegra_is_clk_enabled(dp->parent_clk))
+		clk_prepare_enable(dp->parent_clk);
+
+	if (!tegra_is_clk_enabled(dp->clk))
+		clk_prepare_enable(dp->clk);
 
 	tegra_dc_io_start(dc);
 	tegra_dpaux_enable(dp);
@@ -2089,7 +2061,7 @@ static void tegra_dc_dp_destroy(struct tegra_dc *dc)
 		tegra_dc_sor_destroy(dp->sor);
 	if (dp->dp_edid)
 		tegra_edid_destroy(dp->dp_edid);
-	clk_put(dp->dpaux_clk);
+	clk_put(dp->clk);
 	clk_put(dp->parent_clk);
 	iounmap(dp->aux_base);
 	release_resource(dp->aux_base_res);
@@ -2108,14 +2080,13 @@ static void tegra_dc_dp_disable(struct tegra_dc *dc)
 
 	tegra_dp_disable_irq(dp->irq);
 
-	tegra_dpaux_pad_power(dp->dc, false);
+	tegra_dpaux_pad_power(dp->dc, true);
 
 	/* Power down SOR */
-	tegra_dc_sor_detach(dp->sor);
 	tegra_dc_sor_disable(dp->sor, false);
 
-	tegra_dpaux_clk_disable(dp);
-	tegra_dp_clk_disable(dp);
+	clk_disable(dp->clk);
+	clk_disable(dp->parent_clk);
 
 	tegra_dc_io_end(dc);
 	dp->enabled = false;
@@ -2124,29 +2095,22 @@ static void tegra_dc_dp_disable(struct tegra_dc *dc)
 static long tegra_dc_dp_setup_clk(struct tegra_dc *dc, struct clk *clk)
 {
 	struct tegra_dc_dp_data *dp = tegra_dc_get_outdata(dc);
-	struct clk *dc_parent_clk;
+	struct clk *parent_clk;
 
-	if (clk == dc->clk) {
-		dc_parent_clk = clk_get_sys(NULL,
-				dc->out->parent_clk ? : "pll_d_out0");
-		clk_set_parent(dc->clk, dc_parent_clk);
-	}
+	tegra_dc_sor_setup_clk(dp->sor, clk, false);
 
-	tegra_sor_setup_clk(dp->sor, clk, false);
-
-	/* fixed pll_dp@270MHz */
 	clk_set_rate(dp->parent_clk, 270000000);
 
-	return tegra_dc_pclk_round_rate(dc, dc->mode.pclk);
+	parent_clk = tegra_get_clock_by_name("pll_d_out0");
+	clk_set_parent(dc->clk, parent_clk);
+
+	return tegra_dc_pclk_round_rate(dc, dp->sor->dc->mode.pclk);
 }
 
 static void tegra_dc_dp_modeset_notifier(struct tegra_dc *dc)
 {
 	struct tegra_dc_dp_data *dp = tegra_dc_get_outdata(dc);
-
-	tegra_dpaux_clk_enable(dp);
 	tegra_dc_sor_modeset_notifier(dp->sor, false);
-	tegra_dpaux_clk_disable(dp);
 }
 
 struct tegra_dc_out_ops tegra_dc_dp_ops = {

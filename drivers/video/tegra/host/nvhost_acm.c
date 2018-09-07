@@ -112,7 +112,7 @@ static void do_module_reset_locked(struct platform_device *dev)
 	}
 }
 
-void nvhost_module_reset(struct platform_device *dev, bool reboot)
+void nvhost_module_reset(struct platform_device *dev)
 {
 	struct nvhost_device_data *pdata = platform_get_drvdata(dev);
 
@@ -125,7 +125,7 @@ void nvhost_module_reset(struct platform_device *dev, bool reboot)
 	do_module_reset_locked(dev);
 	mutex_unlock(&pdata->lock);
 
-	if (reboot && pdata->finalize_poweron)
+	if (pdata->finalize_poweron)
 		pdata->finalize_poweron(dev);
 
 	dev_dbg(&dev->dev, "%s: module %s out of reset\n",
@@ -169,6 +169,7 @@ int nvhost_module_busy(struct platform_device *dev)
 #ifdef CONFIG_PM_RUNTIME
 	ret = pm_runtime_get_sync(&dev->dev);
 	if (ret < 0) {
+		pm_runtime_put_noidle(&dev->dev);
 		if (dev->dev.parent && (dev->dev.parent != &platform_bus))
 			nvhost_module_idle(nvhost_get_parent(dev));
 		nvhost_err(&dev->dev, "failed to power on, err %d", ret);
@@ -792,6 +793,8 @@ static int nvhost_module_power_on(struct generic_pm_domain *domain)
 		do_unpowergate_locked(pdata->powergate_ids[1]);
 	}
 
+	if (pdata->powerup_reset)
+		do_module_reset_locked(pdata->pdev);
 	mutex_unlock(&pdata->lock);
 
 	return 0;
@@ -846,23 +849,47 @@ int nvhost_module_finalize_poweron(struct device *dev)
 /* public host1x power management APIs */
 bool nvhost_module_powered_ext(struct platform_device *dev)
 {
-	if (dev->dev.parent && dev->dev.parent != &platform_bus)
-		dev = to_platform_device(dev->dev.parent);
-	return nvhost_module_powered(dev);
+	struct platform_device *pdev;
+
+	if (!nvhost_get_parent(dev)) {
+		dev_err(&dev->dev, "Module powered called with wrong dev\n");
+		return 0;
+	}
+
+	/* get the parent */
+	pdev = to_platform_device(dev->dev.parent);
+
+	return nvhost_module_powered(pdev);
 }
 
 int nvhost_module_busy_ext(struct platform_device *dev)
 {
-	if (dev->dev.parent && dev->dev.parent != &platform_bus)
-		dev = to_platform_device(dev->dev.parent);
-	return nvhost_module_busy(dev);
+	struct platform_device *pdev;
+
+	if (!nvhost_get_parent(dev)) {
+		dev_err(&dev->dev, "Module busy called with wrong dev\n");
+		return -EINVAL;
+	}
+
+	/* get the parent */
+	pdev = to_platform_device(dev->dev.parent);
+
+	return nvhost_module_busy(pdev);
 }
 EXPORT_SYMBOL(nvhost_module_busy_ext);
 
 void nvhost_module_idle_ext(struct platform_device *dev)
 {
-	if (dev->dev.parent && dev->dev.parent != &platform_bus)
-		dev = to_platform_device(dev->dev.parent);
-	nvhost_module_idle(dev);
+	struct platform_device *pdev;
+
+	if (!nvhost_get_parent(dev)) {
+		dev_err(&dev->dev, "Module idle called with wrong dev\n");
+		return;
+	}
+
+	/* get the parent */
+	pdev = to_platform_device(dev->dev.parent);
+
+	nvhost_module_idle(pdev);
 }
 EXPORT_SYMBOL(nvhost_module_idle_ext);

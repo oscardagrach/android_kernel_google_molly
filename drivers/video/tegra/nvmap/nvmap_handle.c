@@ -145,6 +145,7 @@ static struct page *nvmap_alloc_pages_exact(gfp_t gfp, size_t size)
 static int handle_page_alloc(struct nvmap_client *client,
 			     struct nvmap_handle *h, bool contiguous)
 {
+	int err = 0;
 	size_t size = PAGE_ALIGN(h->size);
 	unsigned int nr_page = size >> PAGE_SHIFT;
 	pgprot_t prot;
@@ -209,6 +210,7 @@ static int handle_page_alloc(struct nvmap_client *client,
 					ioremap_page_range(kaddr,
 						kaddr + PAGE_SIZE,
 						paddr, prot);
+					nvmap_flush_tlb_kernel_page(kaddr);
 					memset((char *)kaddr, 0, PAGE_SIZE);
 					unmap_kernel_range(kaddr, PAGE_SIZE);
 				}
@@ -230,6 +232,9 @@ static int handle_page_alloc(struct nvmap_client *client,
 	 * userspace and leaked kernel data structures.
 	 */
 	nvmap_flush_cache(pages, nr_page);
+
+	if (err)
+		goto fail;
 
 	if (h->userflags & NVMAP_HANDLE_ZEROED_PAGES || zero_memory)
 		free_vm_area(area);
@@ -347,11 +352,13 @@ int nvmap_alloc_handle(struct nvmap_client *client,
 	h->align = max_t(size_t, align, L1_CACHE_BYTES);
 	h->kind = kind;
 
+#ifndef CONFIG_TEGRA_IOVMM
 	/* convert iovmm requests to generic carveout. */
 	if (heap_mask & NVMAP_HEAP_IOVMM) {
 		heap_mask = (heap_mask & ~NVMAP_HEAP_IOVMM) |
 			    NVMAP_HEAP_CARVEOUT_GENERIC;
 	}
+#endif
 
 	if (!heap_mask) {
 		err = -EINVAL;
@@ -532,7 +539,7 @@ struct nvmap_handle_ref *nvmap_create_handle(struct nvmap_client *client,
 	 * Pre-attach nvmap to this new dmabuf. This gets unattached during the
 	 * dma_buf_release() operation.
 	 */
-	h->attachment = dma_buf_attach(h->dmabuf, nvmap_dev->dev_user.parent);
+	h->attachment = dma_buf_attach(h->dmabuf, &nvmap_pdev->dev);
 	if (IS_ERR(h->attachment)) {
 		err = h->attachment;
 		goto dma_buf_attach_fail;

@@ -27,7 +27,6 @@
 #include <mach/mc.h>
 #include <linux/nvhost.h>
 #include <mach/latency_allowance.h>
-#include <mach/tegra_emc.h>
 #include <trace/events/display.h>
 
 #include "dc_reg.h"
@@ -192,8 +191,7 @@ static void calc_disp_params(struct tegra_dc *dc,
 	unsigned int reqd_buffering_thresh_disp_bytes_fp = 0;
 	unsigned int latency_buffering_available_in_reqd_buffering_fp = 0;
 	struct clk *emc_clk = clk_get(NULL, "emc");
-	unsigned long emc_freq_khz = clk_get_rate(emc_clk) / 1000;
-	unsigned long emc_freq_mhz = emc_freq_khz / 1000;
+	unsigned long emc_freq_mhz = clk_get_rate(emc_clk)/1000000;
 	unsigned int bw_disruption_time_usec_fp =
 					T12X_LA_BW_DISRUPTION_TIME_EMCCLKS_FP /
 					emc_freq_mhz;
@@ -243,8 +241,7 @@ static void calc_disp_params(struct tegra_dc *dc,
 	unsigned int bw_display_fp = 0;
 	unsigned int bw_delta_fp = 0;
 	unsigned int fill_rate_other_wins_fp = 0;
-	unsigned int dvfs_time_nsec =
-			tegra_get_dvfs_clk_change_latency_nsec(emc_freq_khz);
+	unsigned int dvfs_time_nsec = tegra_get_dvfs_time_nsec(emc_freq_mhz);
 	unsigned int data_shortfall_other_wins_fp = 0;
 	unsigned int duration_usec_fp = 0;
 	unsigned int spool_up_buffering_adj_bytes = 0;
@@ -860,30 +857,25 @@ int tegra_dc_set_dynamic_emc(struct tegra_dc *dc)
 /* return the minimum bandwidth in kbps for display to function */
 long tegra_dc_calc_min_bandwidth(struct tegra_dc *dc)
 {
-	unsigned  pclk;
+	unsigned pclk = tegra_dc_get_out_max_pixclock(dc);
 
 	if (WARN_ONCE(!dc, "dc is NULL") ||
 		WARN_ONCE(!dc->out, "dc->out is NULL!"))
 		return 0;
-
-	pclk = tegra_dc_get_out_max_pixclock(dc);
 	if (!pclk) {
 		 if (dc->out->type == TEGRA_DC_OUT_HDMI) {
-#if defined(CONFIG_ARCH_TEGRA_11x_SOC) || defined(CONFIG_ARCH_TEGRA_12x_SOC)
+#if defined(CONFIG_ARCH_TEGRA_11x_SOC)
 			pclk = KHZ2PICOS(300000); /* 300MHz max */
 #else
 			pclk = KHZ2PICOS(150000); /* 150MHz max */
 #endif
-		} else if ((dc->out->type == TEGRA_DC_OUT_DP) ||
-			(dc->out->type == TEGRA_DC_OUT_NVSR_DP)) {
+		} else if (dc->out->type == TEGRA_DC_OUT_DP) {
 			if (dc->mode.pclk)
 				pclk = KHZ2PICOS(dc->mode.pclk / 1000);
 			else
 				pclk = KHZ2PICOS(25200); /* vga */
 		} else {
-			if (!WARN_ONCE(!dc->mode.pclk,
-				"pclk is not set, bandwidth calc cannot work"))
-				pclk = KHZ2PICOS(dc->mode.pclk / 1000);
+			pclk = KHZ2PICOS(dc->mode.pclk / 1000);
 		}
 	}
 

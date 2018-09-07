@@ -68,8 +68,12 @@ struct nvmap_carveout_node {
 	size_t			size;
 };
 
+struct platform_device *nvmap_pdev;
+EXPORT_SYMBOL(nvmap_pdev);
 struct nvmap_device *nvmap_dev;
+EXPORT_SYMBOL(nvmap_dev);
 struct nvmap_stats nvmap_stats;
+EXPORT_SYMBOL(nvmap_stats);
 
 static struct backing_dev_info nvmap_bdi = {
 	.ra_pages	= 0,
@@ -109,6 +113,13 @@ static struct vm_operations_struct nvmap_vma_ops = {
 int is_nvmap_vma(struct vm_area_struct *vma)
 {
 	return vma->vm_ops == &nvmap_vma_ops;
+}
+
+struct device *nvmap_client_to_device(struct nvmap_client *client)
+{
+	if (!client)
+		return 0;
+	return nvmap_dev->dev_user.this_device;
 }
 
 /*
@@ -206,6 +217,7 @@ int nvmap_flush_heap_block(struct nvmap_client *client,
 		next = min(next, end);
 		ioremap_page_range(kaddr, kaddr + PAGE_SIZE,
 			phys, PG_PROT_KERNEL);
+		nvmap_flush_tlb_kernel_page(kaddr);
 		FLUSH_DCACHE_AREA(base, next - phys);
 		phys = next;
 		unmap_kernel_range(kaddr, PAGE_SIZE);
@@ -1178,8 +1190,6 @@ static int nvmap_probe(struct platform_device *pdev)
 				debugfs_create_file("allocations", S_IRUGO,
 					heap_root, node,
 					&debug_allocations_fops);
-				nvmap_heap_debugfs_init(heap_root,
-							node->carveout);
 			}
 		}
 	}
@@ -1243,6 +1253,7 @@ static int nvmap_probe(struct platform_device *pdev)
 
 	nvmap_stats_init(nvmap_debug_root);
 	platform_set_drvdata(pdev, dev);
+	nvmap_pdev = pdev;
 	nvmap_dev = dev;
 
 	nvmap_dmabuf_debugfs_init(nvmap_debug_root);

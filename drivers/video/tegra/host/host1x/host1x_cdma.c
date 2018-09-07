@@ -349,7 +349,7 @@ static void cdma_timeout_teardown_begin(struct nvhost_cdma *cdma)
 		ch->aperture + host1x_channel_dmactrl_r());
 
 	writel(BIT(ch->chid), dev->sync_aperture + host1x_sync_ch_teardown_r());
-	nvhost_module_reset(ch->dev, true);
+	nvhost_module_reset(ch->dev);
 
 	cdma->running = false;
 	cdma->torndown = true;

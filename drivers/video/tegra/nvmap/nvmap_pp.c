@@ -48,16 +48,11 @@ static inline void __pp_dbg_var_add(u64 *dbg_var, u32 nr)
 #define pp_miss_add(pool, nr)  __pp_dbg_var_add(&(pool)->misses, nr)
 
 /*
- * This removes a page from the page pool. If ignore_disable is set, then
- * the enable_pp flag is ignored.
+ * This removes a page from the page pool.
  */
-static struct page *nvmap_page_pool_alloc_locked(struct nvmap_page_pool *pool,
-						 int force_alloc)
+static struct page *nvmap_page_pool_alloc_locked(struct nvmap_page_pool *pool)
 {
 	struct page *page;
-
-	if ((!force_alloc && !enable_pp) || !pool->page_array)
-		return NULL;
 
 	if (pp_empty(pool)) {
 		pp_miss_add(pool, 1);
@@ -97,9 +92,6 @@ int __nvmap_page_pool_alloc_lots_locked(struct nvmap_page_pool *pool,
 	u32 real_nr;
 	u32 ind = 0;
 
-	if (!enable_pp || !pool->page_array)
-		return 0;
-
 	real_nr = min(nr, pool->count);
 
 	while (real_nr--) {
@@ -130,22 +122,19 @@ struct page *nvmap_page_pool_alloc(struct nvmap_page_pool *pool)
 
 	if (pool) {
 		nvmap_page_pool_lock(pool);
-		page = nvmap_page_pool_alloc_locked(pool, 0);
+		page = nvmap_page_pool_alloc_locked(pool);
 		nvmap_page_pool_unlock(pool);
 	}
 	return page;
 }
 
 /*
- * This adds a page to the pool. Returns true if the passed page is added.
+ * This adds a page to the pool. Returns true iff the passed page is added.
  * That means if the pool is full this operation will fail.
  */
 static bool nvmap_page_pool_fill_locked(struct nvmap_page_pool *pool,
 					struct page *page)
 {
-	if (!enable_pp || !pool->page_array)
-		return false;
-
 	if (pp_full(pool))
 		return false;
 
@@ -177,9 +166,6 @@ int __nvmap_page_pool_fill_lots_locked(struct nvmap_page_pool *pool,
 {
 	u32 real_nr;
 	u32 ind = 0;
-
-	if (!enable_pp || !pool->page_array)
-		return 0;
 
 	real_nr = min(pool->length - pool->count, nr);
 	if (real_nr == 0)
@@ -220,11 +206,6 @@ static int nvmap_page_pool_get_available_count(struct nvmap_page_pool *pool)
 	return pool->count;
 }
 
-/*
- * Free the passed number of pages from the page pool. This happen irregardless
- * of whether ther page pools are enabled. This lets one disable the page pools
- * and then free all the memory therein.
- */
 static int nvmap_page_pool_free(struct nvmap_page_pool *pool, int nr_free)
 {
 	int i = nr_free;
@@ -235,7 +216,7 @@ static int nvmap_page_pool_free(struct nvmap_page_pool *pool, int nr_free)
 
 	nvmap_page_pool_lock(pool);
 	while (i) {
-		page = nvmap_page_pool_alloc_locked(pool, 1);
+		page = nvmap_page_pool_alloc_locked(pool);
 		if (!page)
 			break;
 		__free_page(page);
@@ -258,54 +239,19 @@ ulong nvmap_page_pool_get_unused_pages(void)
 	return total;
 }
 
-/*
- * Remove and free to the system all the pages currently in the page
- * pool. This operation will happen even if the page pools are disabled.
- */
-int nvmap_page_pool_clear(void)
-{
-	struct page *page;
-	struct nvmap_page_pool *pool = &nvmap_dev->pool;
-
-	if (!pool->page_array)
-		return 0;
-
-	nvmap_page_pool_lock(pool);
-
-	while ((page = nvmap_page_pool_alloc_locked(pool, 1)) != NULL)
-		__free_page(page);
-
-	/* For some reason, if an error occured... */
-	if (!pp_empty(pool)) {
-		nvmap_page_pool_unlock(pool);
-		return -ENOMEM;
-	}
-
-	nvmap_page_pool_unlock(pool);
-	return 0;
-}
-
-/*
- * Resizes the page pool to the passed size. If the passed size is 0 then
- * all associated resources are released back to the system. This operation
- * will only occur if the page pools are enabled.
- */
 static void nvmap_page_pool_resize(struct nvmap_page_pool *pool, int size)
 {
 	int ind;
 	struct page **page_array = NULL;
 
-	if (!enable_pp || size == pool->length || size < 0)
+	if (size == pool->length)
 		return;
 
 	nvmap_page_pool_lock(pool);
 	if (size == 0) {
+		/* TODO: fix this! */
 		vfree(pool->page_array);
 		pool->page_array = NULL;
-		pool->alloc = 0;
-		pool->fill = 0;
-		pool->count = 0;
-		pool->length = 0;
 		goto out;
 	}
 
@@ -321,15 +267,15 @@ static void nvmap_page_pool_resize(struct nvmap_page_pool *pool, int size)
 	/*
 	 * And free anything that might be left over.
 	 */
-	while (pool->page_array && !pp_empty(pool))
-		__free_page(nvmap_page_pool_alloc_locked(pool, 0));
+	while (!pp_empty(pool))
+		__free_page(nvmap_page_pool_alloc_locked(pool));
 
 	swap(page_array, pool->page_array);
 	pool->alloc = 0;
 	pool->fill = (ind == size ? 0 : ind);
 	pool->count = ind;
 	pool->length = size;
-	pool_size = size;
+
 	vfree(page_array);
 
 out:
@@ -413,15 +359,19 @@ module_param_cb(shrink_page_pools, &shrink_ops, &shrink_pp, 0644);
 
 static int enable_pp_set(const char *arg, const struct kernel_param *kp)
 {
-	int ret;
+	int total_pages, available_pages, ret;
 
 	ret = param_set_bool(arg, kp);
 	if (ret)
 		return ret;
 
-	if (!enable_pp)
-		nvmap_page_pool_clear();
-
+	if (!enable_pp) {
+		total_pages = 0;
+		shrink_page_pools(&total_pages, &available_pages);
+		pr_info("disabled page pools and released pages, "
+			"total_pages_released=%d, free_pages_available=%d",
+			total_pages, available_pages);
+	}
 	return 0;
 }
 

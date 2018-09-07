@@ -62,6 +62,10 @@ struct nvhost_syncpt {
 int nvhost_syncpt_init(struct platform_device *, struct nvhost_syncpt *);
 void nvhost_syncpt_deinit(struct nvhost_syncpt *);
 
+u32 nvhost_get_syncpt_host_managed(struct platform_device *pdata,
+				   u32 param);
+void nvhost_free_syncpt(u32 id);
+
 #define syncpt_to_dev(sp) container_of(sp, struct nvhost_master, syncpt)
 #define SYNCPT_CHECK_PERIOD (2 * HZ)
 #define MAX_STUCK_CHECK_COUNT 15
@@ -124,7 +128,6 @@ void nvhost_syncpt_cpu_incr(struct nvhost_syncpt *sp, u32 id);
 
 u32 nvhost_syncpt_update_min(struct nvhost_syncpt *sp, u32 id);
 bool nvhost_syncpt_is_expired(struct nvhost_syncpt *sp, u32 id, u32 thresh);
-bool nvhost_is_syncpt_assigned(struct nvhost_syncpt *sp, u32 id);
 int nvhost_syncpt_compare(struct nvhost_syncpt *sp, u32 id,
 				u32 thresh_a, u32 thresh_b);
 

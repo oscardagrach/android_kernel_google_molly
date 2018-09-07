@@ -23,13 +23,11 @@ struct channel_gk20a;
 struct platform_device;
 
 #ifdef CONFIG_GK20A
-int nvhost_vpr_info_fetch(void);
+void gk20a_channel_update(struct channel_gk20a *c, int nr_completed);
 void gk20a_debug_dump_device(struct platform_device *pdev);
 #else
+static inline void gk20a_channel_update(struct channel_gk20a *c,
+					int nr_completed) {}
 static inline void gk20a_debug_dump_device(struct platform_device *pdev) {}
-static inline int nvhost_vpr_info_fetch(void)
-{
-	return -ENOSYS;
-}
 #endif
 #endif

@@ -119,7 +119,8 @@ static void add_sync_waits(struct nvhost_channel *ch, int fd)
 	struct nvhost_master *host = nvhost_get_host(ch->dev);
 	struct nvhost_syncpt *sp = &host->syncpt;
 	struct sync_fence *fence;
-	struct sync_pt *pt;
+	struct sync_pt *_pt;
+	struct nvhost_sync_pt *pt;
 	struct list_head *pos;
 
 	if (fd < 0)
@@ -142,7 +143,8 @@ static void add_sync_waits(struct nvhost_channel *ch, int fd)
 		u32 id;
 		u32 thresh;
 
-		pt = container_of(pos, struct sync_pt, pt_list);
+		_pt = container_of(pos, struct sync_pt, pt_list);
+		pt = to_nvhost_sync_pt(_pt);
 		id = nvhost_sync_pt_id(pt);
 		thresh = nvhost_sync_pt_thresh(pt);
 
@@ -270,8 +272,7 @@ static void submit_gathers(struct nvhost_job *job)
 				job->gathers[i].mem_base,
 				g->offset,
 				op1, op2);
-		if (cpuva)
-			dma_buf_vunmap(g->buf, cpuva);
+		dma_buf_vunmap(g->buf, cpuva);
 	}
 }
 

@@ -45,6 +45,7 @@
 #include "bus_client.h"
 #include "dev.h"
 #include "class_ids.h"
+#include "nvhost_as.h"
 #include "chip_support.h"
 #include "nvhost_acm.h"
 
@@ -478,7 +479,8 @@ static int nvhost_ioctl_channel_submit(struct nvhost_channel_userctx *ctx,
 			pts[i].thresh = job->sp[i].fence;
 		}
 
-		err = nvhost_sync_create_fence_fd(ctx->ch->dev,
+		err = nvhost_sync_create_fence_fd(
+				&nvhost_get_host(ctx->ch->dev)->syncpt,
 				pts, num_syncpt_incrs, "fence", &args->fence);
 		if (err)
 			goto fail;
@@ -616,6 +618,13 @@ fail_hwctx:
 	user_ctxhandler_free(ctxhandler);
 fail:
 	return err;
+}
+
+static int nvhost_ioctl_channel_read_3d_reg(struct nvhost_channel_userctx *ctx,
+	struct nvhost_read_3d_reg_args *args)
+{
+	return nvhost_channel_read_reg(ctx->ch, ctx->hwctx,
+			args->offset, &args->value);
 }
 
 static int moduleid_to_index(struct platform_device *dev, u32 moduleid)
@@ -861,6 +870,9 @@ static long nvhost_channelctl(struct file *filp,
 	}
 	case NVHOST_IOCTL_CHANNEL_SET_NVMAP_FD:
 		break;
+	case NVHOST_IOCTL_CHANNEL_READ_3D_REG:
+		err = nvhost_ioctl_channel_read_3d_reg(priv, (void *)buf);
+		break;
 	case NVHOST_IOCTL_CHANNEL_GET_CLK_RATE:
 	{
 		struct nvhost_clk_rate_args *arg =
@@ -1006,6 +1018,17 @@ struct nvhost_hwctx *nvhost_channel_get_file_hwctx(int fd)
 	return userctx->hwctx;
 }
 
+
+static const struct file_operations nvhost_asops = {
+	.owner = THIS_MODULE,
+	.release = nvhost_as_dev_release,
+	.open = nvhost_as_dev_open,
+#ifdef CONFIG_COMPAT
+	.compat_ioctl = nvhost_as_dev_ctl,
+#endif
+	.unlocked_ioctl = nvhost_as_dev_ctl,
+};
+
 static struct {
 	int class_id;
 	const char *dev_name;
@@ -1101,18 +1124,30 @@ int nvhost_client_user_init(struct platform_device *dev)
 	int err, devno;
 	struct nvhost_device_data *pdata = platform_get_drvdata(dev);
 
-	/* reserve 3 minor #s for <dev>, and ctrl-<dev> */
+	/* reserve 3 minor #s for <dev> and as-<dev>, and ctrl-<dev> */
 
-	err = alloc_chrdev_region(&devno, 0, 4, IFACE_NAME);
+	err = alloc_chrdev_region(&devno, 0, 5, IFACE_NAME);
 	if (err < 0) {
 		dev_err(&dev->dev, "failed to allocate devno\n");
 		goto fail;
 	}
 
-	pdata->node = nvhost_client_device_create(dev, &pdata->cdev,
-				"", devno, &nvhost_channelops);
-	if (pdata->node == NULL)
-		goto fail;
+	/* gk20a creates the channel node by itself */
+	if (pdata->class != NV_GRAPHICS_GPU_CLASS_ID) {
+		pdata->node = nvhost_client_device_create(dev, &pdata->cdev,
+					"", devno, &nvhost_channelops);
+		if (pdata->node == NULL)
+			goto fail;
+	}
+
+	if (pdata->as_ops) {
+		++devno;
+		pdata->as_node = nvhost_client_device_create(dev,
+						&pdata->as_cdev, "as-",
+						devno, &nvhost_asops);
+		if (pdata->as_node == NULL)
+			goto fail;
+	}
 
 	/* module control (npn-channel based, global) interface */
 	if (pdata->ctrl_ops) {
@@ -1323,4 +1358,3 @@ nvhost_client_request_firmware(struct platform_device *dev, const char *fw_name)
 	/* note: caller must release_firmware */
 	return fw;
 }
-EXPORT_SYMBOL(nvhost_client_request_firmware);

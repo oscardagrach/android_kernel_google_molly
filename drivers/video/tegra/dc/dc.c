@@ -935,25 +935,6 @@ static inline void tegra_dc_create_debugfs(struct tegra_dc *dc) { };
 static inline void tegra_dc_remove_debugfs(struct tegra_dc *dc) { };
 #endif /* CONFIG_DEBUGFS */
 
-unsigned long tegra_dc_poll_register(struct tegra_dc *dc, u32 reg, u32 mask,
-		u32 exp_val, u32 poll_interval_us, u32 timeout_ms)
-{
-	unsigned long timeout_jf = jiffies + msecs_to_jiffies(timeout_ms);
-	u32 reg_val = 0;
-
-	do {
-		usleep_range(poll_interval_us, poll_interval_us << 1);
-		reg_val = tegra_dc_readl(dc, reg);
-	} while (((reg_val & mask) != exp_val) &&
-		time_after(timeout_jf, jiffies));
-
-	if ((reg_val & mask) == exp_val)
-		return 0;       /* success */
-	dev_err(&dc->ndev->dev,
-		"dc_poll_register 0x%x: timeout\n", reg);
-	return jiffies - timeout_jf + 1;
-}
-
 static int tegra_dc_set(struct tegra_dc *dc, int index)
 {
 	int ret = 0;
@@ -1275,13 +1256,13 @@ void tegra_dc_incr_syncpt_min(struct tegra_dc *dc, int i, u32 val)
 struct sync_fence *tegra_dc_create_fence(struct tegra_dc *dc, int i, u32 val)
 {
 	struct nvhost_ctrl_sync_fence_info syncpt;
+	struct nvhost_master *host = nvhost_get_host(dc->ndev);
 	u32 id = tegra_dc_get_syncpt_id(dc, i);
 
 	syncpt.id = id;
 	syncpt.thresh = val;
-	return nvhost_sync_create_fence(
-			to_platform_device(dc->ndev->dev.parent),
-			&syncpt, 1, dev_name(&dc->ndev->dev));
+	return nvhost_sync_create_fence(&host->syncpt, &syncpt, 1,
+			dev_name(&dc->ndev->dev));
 }
 
 void
@@ -1512,7 +1493,7 @@ EXPORT_SYMBOL(tegra_dc_get_out_width);
 
 unsigned tegra_dc_get_out_max_pixclock(const struct tegra_dc *dc)
 {
-	if (dc && dc->out)
+	if (dc->out && dc->out->max_pixclock)
 		return dc->out->max_pixclock;
 	else
 		return 0;
@@ -1628,18 +1609,11 @@ int tegra_dc_wait_for_vsync(struct tegra_dc *dc)
 
 	mutex_lock(&dc->one_shot_lp_lock);
 	dc->out->user_needs_vblank = true;
-
-	mutex_lock(&dc->lock);
 	tegra_dc_unmask_interrupt(dc, MSF_INT);
-	mutex_unlock(&dc->lock);
 
 	ret = wait_for_completion_interruptible(&dc->out->user_vblank_comp);
 	init_completion(&dc->out->user_vblank_comp);
-
-	mutex_lock(&dc->lock);
 	tegra_dc_mask_interrupt(dc, MSF_INT);
-	mutex_unlock(&dc->lock);
-
 	mutex_unlock(&dc->one_shot_lp_lock);
 
 	if (dc->out_ops && dc->out_ops->release)
@@ -2452,7 +2426,6 @@ static int _tegra_dc_set_default_videomode(struct tegra_dc *dc)
 		break;
 
 		case TEGRA_DC_OUT_DP:
-		case TEGRA_DC_OUT_NVSR_DP:
 			return tegra_dc_set_fb_mode(dc, &tegra_dc_vga_mode, 0);
 
 		/* Do nothing for other outputs for now */
@@ -3043,17 +3016,6 @@ static int tegra_dc_probe(struct platform_device *ndev)
 			"No default output specified.  Leaving output disabled.\n");
 	}
 	dc->mode_dirty = false; /* ignore changes tegra_dc_set_out has done */
-
-	/* Adjust powergate_id based on dc->out for HDMI.
-	 * This can't be done above where powergate_id was first set
-	 * since dc->out isn't known yet.
-	 * This code assumes DISB depends on DISA. DC's powergate
-	 * code will have to change if dependency is removed
-	 */
-	if (dc->out && dc->out->type == TEGRA_DC_OUT_HDMI) {
-		pr_info("changing dc->powergate_id to DISB\n");
-		dc->powergate_id = TEGRA_POWERGATE_DISB;
-	}
 
 #ifndef CONFIG_TEGRA_ISOMGR
 		/*
