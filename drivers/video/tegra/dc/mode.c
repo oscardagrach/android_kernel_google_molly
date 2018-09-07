@@ -210,9 +210,9 @@ static bool check_mode_timings(struct tegra_dc *dc, struct tegra_dc_mode *mode,
 		 */
 		if (tegra_hdmi_connector_is_dvi(dc) ||
 		   (tegra_dc_find_cea_vic_from_fb_vmode(fbmode) <= 1))
-			mode.avi_q = TEGRA_DC_MODE_AVI_Q_FULL;
+			mode->avi_q = TEGRA_DC_MODE_AVI_Q_FULL;
 		else
-			mode.avi_q = TEGRA_DC_MODE_AVI_Q_LIMITED;
+			mode->avi_q = TEGRA_DC_MODE_AVI_Q_LIMITED;
 #endif
 	} else {
 		calc_ref_to_sync(mode);
