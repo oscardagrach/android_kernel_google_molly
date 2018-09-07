@@ -1070,12 +1070,19 @@ static int tegra_nvhdcp_on(struct tegra_nvhdcp *nvhdcp)
 
 static int tegra_nvhdcp_off(struct tegra_nvhdcp *nvhdcp)
 {
+    bool plugged_at_start = nvhdcp_is_plugged(nvhdcp);
+
 	mutex_lock(&nvhdcp->lock);
 	nvhdcp->state = STATE_OFF;
 	nvhdcp_set_plugged(nvhdcp, false);
 	mutex_unlock(&nvhdcp->lock);
 	wake_up_interruptible(&wq_worker);
 	cancel_delayed_work_sync(&nvhdcp->work);
+
+	/* wait for communication to halt */
+	if (plugged_at_start)
+		msleep(1000);
+
 	return 0;
 }
 
